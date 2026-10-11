@@ -1,0 +1,334 @@
+@model IEnumerable<BTL_LTWEB_QLChiTieu.Models.Transaction>
+@{
+    ViewData["Title"] = "Bảng điều khiển Tổng quan";
+    Layout = "_Layout";
+    decimal currentBalance = ViewBag.CurrentBalance ?? 0;
+    decimal currentMonthIncome = ViewBag.CurrentMonthIncome ?? 0;
+    decimal currentMonthExpense = ViewBag.CurrentMonthExpense ?? 0;
+    decimal dailyAverageExpense = ViewBag.DailyAverageExpense ?? 0;
+    int currentMonth = ViewBag.CurrentMonth ?? DateTime.Today.Month;
+    int currentYear = ViewBag.CurrentYear ?? DateTime.Today.Year;
+    var budgets = ViewBag.Budgets as List<BTL_LTWEB_QLChiTieu.Services.BudgetProgressViewModel> ?? new();
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold text-dark mb-1">Xin chào, @User.Identity?.Name! 👋</h3>
+        <p class="text-muted small mb-0">Tổng quan tình hình tài chính của bạn trong Tháng @currentMonth/@currentYear</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-controller="Transactions" asp-action="Index" class="btn btn-primary rounded-3 shadow-sm px-3 py-2 fw-semibold">
+            <i class="bi bi-plus-circle me-1"></i>Thêm giao dịch
+        </a>
+    </div>
+</div>
+
+<!-- 4 Thẻ Thống Kê Chính (Mục 6.1 Đặc Tả) -->
+<div class="row g-3 mb-4">
+    <!-- 1. Số dư hiện tại -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-4 bg-white p-3 h-100">
+            <div class="d-flex align-items-center">
+                <div class="bg-primary bg-opacity-10 text-primary rounded-3 p-3 me-3">
+                    <i class="bi bi-wallet2 fs-3"></i>
+                </div>
+                <div>
+                    <div class="text-muted small fw-medium">Số dư hiện tại</div>
+                    <h4 class="fw-bold mb-0 @(currentBalance >= 0 ? "text-primary" : "text-danger")">
+                        @currentBalance.ToString("N0") đ
+                    </h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Thu nhập tháng này -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-4 bg-white p-3 h-100">
+            <div class="d-flex align-items-center">
+                <div class="bg-success bg-opacity-10 text-success rounded-3 p-3 me-3">
+                    <i class="bi bi-arrow-down-left-circle fs-3"></i>
+                </div>
+                <div>
+                    <div class="text-muted small fw-medium">Thu nhập tháng này</div>
+                    <h4 class="fw-bold mb-0 text-success">
+                        @currentMonthIncome.ToString("N0") đ
+                    </h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Chi tiêu tháng này -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-4 bg-white p-3 h-100">
+            <div class="d-flex align-items-center">
+                <div class="bg-danger bg-opacity-10 text-danger rounded-3 p-3 me-3">
+                    <i class="bi bi-arrow-up-right-circle fs-3"></i>
+                </div>
+                <div>
+                    <div class="text-muted small fw-medium">Chi tiêu tháng này</div>
+                    <h4 class="fw-bold mb-0 text-danger">
+                        @currentMonthExpense.ToString("N0") đ
+                    </h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Chi tiêu bình quân mỗi ngày -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-4 bg-white p-3 h-100">
+            <div class="d-flex align-items-center">
+                <div class="bg-info bg-opacity-10 text-info rounded-3 p-3 me-3">
+                    <i class="bi bi-calculator fs-3"></i>
+                </div>
+                <div>
+                    <div class="text-muted small fw-medium">Chi bình quân / ngày</div>
+                    <h4 class="fw-bold mb-0 text-dark">
+                        @dailyAverageExpense.ToString("N0") đ
+                    </h4>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 2 Biểu Đồ Chart.js (Mục 6.2 & 6.3 Đặc Tả) -->
+<div class="row g-4 mb-4">
+    <!-- Biểu đồ Doughnut: Cơ cấu chi tiêu tháng hiện tại -->
+    <div class="col-12 col-lg-5">
+        <div class="card border-0 shadow-sm rounded-4 bg-white h-100 p-4">
+            <h5 class="fw-bold text-dark mb-1">Cơ cấu chi tiêu Tháng @currentMonth</h5>
+            <p class="text-muted small mb-3">Tỷ lệ chi tiêu theo các danh mục trong tháng</p>
+            <div class="position-relative d-flex justify-content-center align-items-center" style="min-height: 280px;">
+                <canvas id="expenseDoughnutChart" style="max-height: 280px;"></canvas>
+                <div id="noDoughnutData" class="text-center text-muted small position-absolute" style="display: none;">
+                    <i class="bi bi-pie-chart fs-1 d-block mb-2 text-secondary"></i>
+                    Chưa có giao dịch chi tiêu trong tháng này
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Biểu đồ Bar: So sánh Thu - Chi 6 tháng gần nhất -->
+    <div class="col-12 col-lg-7">
+        <div class="card border-0 shadow-sm rounded-4 bg-white h-100 p-4">
+            <h5 class="fw-bold text-dark mb-1">Thu - Chi 6 tháng gần nhất</h5>
+            <p class="text-muted small mb-3">So sánh dòng tiền thu nhập và chi tiêu qua các tháng</p>
+            <div style="min-height: 280px;">
+                <canvas id="incomeExpenseBarChart" style="max-height: 280px;"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Giao dịch gần đây nhất -->
+    <div class="col-12 col-lg-7">
+        <div class="card border-0 shadow-sm rounded-4 bg-white h-100">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0 text-dark">Giao dịch gần đây</h5>
+                <a asp-controller="Transactions" asp-action="Index" class="btn btn-outline-primary btn-sm rounded-pill">
+                    Xem tất cả <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+            </div>
+            <div class="card-body p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light small text-muted">
+                            <tr>
+                                <th>Ngày</th>
+                                <th>Danh mục</th>
+                                <th>Số tiền</th>
+                                <th>Ghi chú</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!Model.Any())
+                            {
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted small">
+                                        Chưa có giao dịch nào được ghi nhận.
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var t in Model)
+                                {
+                                    <tr>
+                                        <td class="small text-secondary">@t.TransactionDate.ToString("dd/MM/yyyy")</td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="rounded-circle d-flex align-items-center justify-content-center me-2 text-white" 
+                                                     style="width: 24px; height: 24px; font-size: 0.75rem; background-color: @(t.Category?.Color ?? "#6c757d");">
+                                                    <i class="bi @(t.Category?.Icon ?? "bi-tag")"></i>
+                                                </div>
+                                                <span class="small fw-semibold">@(t.Category?.Name ?? "Khác")</span>
+                                            </div>
+                                        </td>
+                                        <td class="fw-bold small @(t.Type == "Income" ? "text-success" : "text-danger")">
+                                            @(t.Type == "Income" ? "+" : "-")@t.Amount.ToString("N0") đ
+                                        </td>
+                                        <td class="small text-muted text-truncate" style="max-width: 150px;">
+                                            @(string.IsNullOrEmpty(t.Note) ? "-" : t.Note)
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tóm tắt ngân sách tháng hiện tại -->
+    <div class="col-12 col-lg-5">
+        <div class="card border-0 shadow-sm rounded-4 bg-white h-100">
+            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0 text-dark">Ngân sách Tháng @currentMonth</h5>
+                <a asp-controller="Budgets" asp-action="Index" class="btn btn-outline-secondary btn-sm rounded-pill">
+                    Quản lý <i class="bi bi-chevron-right ms-1"></i>
+                </a>
+            </div>
+            <div class="card-body p-4">
+                @if (!budgets.Any())
+                {
+                    <div class="text-center py-4 text-muted small">
+                        <i class="bi bi-pie-chart fs-3 d-block mb-2 text-secondary"></i>
+                        Chưa thiết lập ngân sách tháng này.
+                        <div class="mt-2">
+                            <a asp-controller="Budgets" asp-action="Index" class="btn btn-sm btn-outline-primary rounded-pill">Thiết lập ngay</a>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="list-group list-group-flush">
+                        @foreach (var b in budgets.Take(4))
+                        {
+                            string barColor = b.StatusLevel == "Exceeded" ? "bg-danger" : b.StatusLevel == "Warning" ? "bg-warning" : "bg-success";
+                            string textColor = b.StatusLevel == "Exceeded" ? "text-danger" : b.StatusLevel == "Warning" ? "text-warning" : "text-success";
+
+                            <div class="list-group-item px-0 py-2 border-0">
+                                <div class="d-flex justify-content-between align-items-center mb-1 small">
+                                    <span class="fw-semibold text-dark">@b.Budget.Category?.Name</span>
+                                    <span class="fw-bold @textColor">@b.Percentage.ToString("F0")%</span>
+                                </div>
+                                <div class="progress" style="height: 6px; border-radius: 3px;">
+                                    <div class="progress-bar @barColor" style="width: @(Math.Min(b.Percentage, 100.0))%;"></div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-1 text-muted" style="font-size: 0.75rem;">
+                                    <span>Đã chi: @b.SpentAmount.ToString("N0") đ</span>
+                                    <span>Hạn mức: @b.Budget.LimitAmount.ToString("N0") đ</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <!-- CDN Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        // 1. Dữ liệu Biểu đồ Doughnut
+        const doughnutLabels = @Html.Raw(ViewBag.DoughnutLabels ?? "[]");
+        const doughnutData = @Html.Raw(ViewBag.DoughnutData ?? "[]");
+        const doughnutColors = @Html.Raw(ViewBag.DoughnutColors ?? "[]");
+
+        if (doughnutData.length > 0) {
+            new Chart(document.getElementById('expenseDoughnutChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: doughnutLabels,
+                    datasets: [{
+                        data: doughnutData,
+                        backgroundColor: doughnutColors,
+                        borderWidth: 2,
+                        hoverOffset: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const value = context.parsed;
+                                    const percent = ((value / total) * 100).toFixed(1);
+                                    return ` ${context.label}: ${value.toLocaleString()} đ (${percent}%)`;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '65%'
+                }
+            });
+        } else {
+            document.getElementById('expenseDoughnutChart').style.display = 'none';
+            document.getElementById('noDoughnutData').style.display = 'block';
+        }
+
+        // 2. Dữ liệu Biểu đồ Bar
+        const barLabels = @Html.Raw(ViewBag.BarLabels ?? "[]");
+        const barIncome = @Html.Raw(ViewBag.BarIncome ?? "[]");
+        const barExpense = @Html.Raw(ViewBag.BarExpense ?? "[]");
+
+        new Chart(document.getElementById('incomeExpenseBarChart'), {
+            type: 'bar',
+            data: {
+                labels: barLabels,
+                datasets: [
+                    {
+                        label: 'Thu nhập',
+                        data: barIncome,
+                        backgroundColor: '#198754',
+                        borderRadius: 6
+                    },
+                    {
+                        label: 'Chi tiêu',
+                        data: barExpense,
+                        backgroundColor: '#dc3545',
+                        borderRadius: 6
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                return ` ${context.dataset.label}: ${context.parsed.y.toLocaleString()} đ`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function (value) {
+                                if (value >= 1000000) return (value / 1000000) + 'M';
+                                if (value >= 1000) return (value / 1000) + 'k';
+                                return value;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+}

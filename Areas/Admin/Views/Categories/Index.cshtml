@@ -1,0 +1,207 @@
+@model IEnumerable<BTL_LTWEB_QLChiTieu.Models.Category>
+@{
+    ViewData["Title"] = "Quản lý Danh mục Hệ thống";
+    Layout = "_AdminLayout";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold text-dark mb-1">Danh mục Hệ thống</h3>
+        <p class="text-muted small mb-0">Các danh mục mặc định được cung cấp sẵn cho toàn bộ sinh viên</p>
+    </div>
+    <button type="button" class="btn btn-primary rounded-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#createCategoryModal">
+        <i class="bi bi-plus-circle me-1"></i>Thêm danh mục mới
+    </button>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show rounded-3" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>@TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show rounded-3" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>@TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="card border-0 shadow-sm rounded-4 bg-white">
+    <div class="card-body p-4">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light small text-muted">
+                    <tr>
+                        <th>#</th>
+                        <th>Biểu tượng & Tên</th>
+                        <th>Loại danh mục</th>
+                        <th>Mã màu</th>
+                        <th>Trạng thái</th>
+                        <th class="text-end">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{ int i = 1; }
+                    @foreach (var c in Model)
+                    {
+                        <tr>
+                            <td class="text-muted small">@(i++)</td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="rounded-3 d-flex align-items-center justify-content-center me-2 text-white" 
+                                         style="width: 36px; height: 36px; background-color: @(c.Color ?? "#6c757d");">
+                                        <i class="bi @(c.Icon ?? "bi-tag")"></i>
+                                    </div>
+                                    <span class="fw-semibold text-dark">@c.Name</span>
+                                </div>
+                            </td>
+                            <td>
+                                @if (c.Type == "Income")
+                                {
+                                    <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2 py-1">
+                                        <i class="bi bi-arrow-down-left me-1"></i>Thu nhập
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-2 py-1">
+                                        <i class="bi bi-arrow-up-right me-1"></i>Chi tiêu
+                                    </span>
+                                }
+                            </td>
+                            <td>
+                                <span class="d-inline-block rounded-circle me-1 border" style="width: 12px; height: 12px; background-color: @c.Color;"></span>
+                                <code class="small text-muted">@c.Color</code>
+                            </td>
+                            <td>
+                                @if (c.IsActive)
+                                {
+                                    <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2 py-1">Đang dùng</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill px-2 py-1">Ngừng dùng</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <div class="d-flex justify-content-end gap-1">
+                                    <form asp-action="ToggleStatus" asp-route-id="@c.CategoryId" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm @(c.IsActive ? "btn-outline-warning" : "btn-outline-success")" 
+                                                title="@(c.IsActive ? "Ngừng sử dụng" : "Kích hoạt")">
+                                            <i class="bi @(c.IsActive ? "bi-pause-circle" : "bi-play-circle")"></i>
+                                        </button>
+                                    </form>
+
+                                    <button type="button" class="btn btn-sm btn-outline-primary" 
+                                            onclick="openEditCategory(@c.CategoryId, '@Html.Raw(c.Name)', '@c.Type', '@c.Icon', '@c.Color')" 
+                                            title="Chỉnh sửa">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+
+                                    <form asp-action="Delete" asp-route-id="@c.CategoryId" method="post" class="d-inline"
+                                          onsubmit="return confirm('Bạn có chắc chắn muốn xóa danh mục này? Nếu đã phát sinh giao dịch thì hệ thống sẽ chặn xóa để bảo toàn dữ liệu.');">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Thêm danh mục -->
+<div class="modal fade" id="createCategoryModal" tabindex="-1" aria-labelledby="createCategoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="createCategoryModalLabel">Thêm danh mục mặc định</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-action="Create" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Tên danh mục</label>
+                        <input type="text" name="Name" class="form-control" required placeholder="Ví dụ: Tiền sinh hoạt..." />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Loại danh mục</label>
+                        <select name="Type" class="form-select" required>
+                            <option value="Expense">Chi tiêu (Expense)</option>
+                            <option value="Income">Thu nhập (Income)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Biểu tượng Bootstrap Icon</label>
+                        <input type="text" name="Icon" class="form-control" value="bi-tag" placeholder="bi-cup-hot, bi-bag, bi-wallet..." />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Mã màu (Hex)</label>
+                        <input type="color" name="Color" class="form-control form-control-color w-100" value="#0d6efd" />
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-3" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary rounded-3">Thêm danh mục</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Sửa danh mục -->
+<div class="modal fade" id="editCategoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Chỉnh sửa danh mục</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-action="Edit" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="CategoryId" id="editCategoryId" />
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Tên danh mục</label>
+                        <input type="text" name="Name" id="editCategoryName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Biểu tượng Bootstrap Icon</label>
+                        <input type="text" name="Icon" id="editCategoryIcon" class="form-control" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Mã màu (Hex)</label>
+                        <input type="color" name="Color" id="editCategoryColor" class="form-control form-control-color w-100" />
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-3" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary rounded-3">Lưu thay đổi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function openEditCategory(id, name, type, icon, color) {
+            document.getElementById('editCategoryId').value = id;
+            document.getElementById('editCategoryName').value = name;
+            document.getElementById('editCategoryIcon').value = icon || 'bi-tag';
+            document.getElementById('editCategoryColor').value = color || '#0d6efd';
+            new bootstrap.Modal(document.getElementById('editCategoryModal')).show();
+        }
+    </script>
+}

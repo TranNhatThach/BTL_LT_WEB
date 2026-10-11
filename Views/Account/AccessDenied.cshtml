@@ -1,0 +1,19 @@
+@{
+    ViewData["Title"] = "Từ chối truy cập";
+    Layout = "_Layout";
+}
+
+<div class="row justify-content-center text-center my-5 py-5">
+    <div class="col-12 col-md-6">
+        <div class="text-danger mb-3">
+            <i class="bi bi-shield-lock-fill" style="font-size: 5rem;"></i>
+        </div>
+        <h2 class="fw-bold text-dark">403 - Quyền truy cập bị từ chối</h2>
+        <p class="text-muted mt-2 mb-4">
+            Bạn không có thẩm quyền để truy cập vào khu vực này. Trang này chỉ dành riêng cho Quản trị viên hệ thống.
+        </p>
+        <a asp-controller="Home" asp-action="Index" class="btn btn-primary px-4 py-2 rounded-3 fw-semibold">
+            <i class="bi bi-house me-2"></i>Trở về trang chủ
+        </a>
+    </div>
+</div>

@@ -1,0 +1,224 @@
+@model IEnumerable<BTL_LTWEB_QLChiTieu.Models.Transaction>
+@{
+    ViewData["Title"] = "Báo cáo Tài chính";
+    Layout = "_Layout";
+    int selectedMonth = ViewBag.SelectedMonth ?? DateTime.Today.Month;
+    int selectedYear = ViewBag.SelectedYear ?? DateTime.Today.Year;
+    decimal totalIncome = ViewBag.TotalIncome ?? 0;
+    decimal totalExpense = ViewBag.TotalExpense ?? 0;
+    decimal netSavings = ViewBag.NetSavings ?? 0;
+    var expenseCategories = ViewBag.ExpenseCategories as List<BTL_LTWEB_QLChiTieu.Controllers.CategorySummary> ?? new();
+    var incomeCategories = ViewBag.IncomeCategories as List<BTL_LTWEB_QLChiTieu.Controllers.CategorySummary> ?? new();
+}
+
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+        <h3 class="fw-bold text-dark mb-1">Báo cáo & Phân tích Tài chính</h3>
+        <p class="text-muted small mb-0">Thống kê chi tiết dòng tiền và xuất file Excel theo Tháng @selectedMonth/@selectedYear</p>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+        <!-- Bộ chọn tháng / năm -->
+        <form method="get" class="d-flex align-items-center gap-2">
+            <select name="month" class="form-select form-select-sm bg-white" onchange="this.form.submit()">
+                @for (int m = 1; m <= 12; m++)
+                {
+                    <option value="@m" selected="@(selectedMonth == m)">Tháng @m</option>
+                }
+            </select>
+            <select name="year" class="form-select form-select-sm bg-white" onchange="this.form.submit()">
+                @for (int y = DateTime.Now.Year + 1; y >= DateTime.Now.Year - 2; y--)
+                {
+                    <option value="@y" selected="@(selectedYear == y)">@y</option>
+                }
+            </select>
+        </form>
+
+        <!-- Nút Xuất Excel (Mục 6.5 Đặc Tả) -->
+        <a asp-action="ExportExcel" asp-route-month="@selectedMonth" asp-route-year="@selectedYear" 
+           class="btn btn-success btn-sm rounded-3 px-3 py-2 fw-semibold text-nowrap shadow-sm">
+            <i class="bi bi-file-earmark-excel-fill me-1"></i>Xuất Excel
+        </a>
+    </div>
+</div>
+
+<!-- 3 Thẻ tổng kết kỳ báo cáo -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm rounded-4 bg-white p-3">
+            <div class="d-flex align-items-center">
+                <div class="bg-success bg-opacity-10 text-success rounded-3 p-3 me-3">
+                    <i class="bi bi-arrow-down-left-circle fs-3"></i>
+                </div>
+                <div>
+                    <div class="text-muted small fw-medium">Tổng thu nhập trong kỳ</div>
+                    <h4 class="fw-bold mb-0 text-success">@totalIncome.ToString("N0") đ</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm rounded-4 bg-white p-3">
+            <div class="d-flex align-items-center">
+                <div class="bg-danger bg-opacity-10 text-danger rounded-3 p-3 me-3">
+                    <i class="bi bi-arrow-up-right-circle fs-3"></i>
+                </div>
+                <div>
+                    <div class="text-muted small fw-medium">Tổng chi tiêu trong kỳ</div>
+                    <h4 class="fw-bold mb-0 text-danger">@totalExpense.ToString("N0") đ</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm rounded-4 bg-white p-3">
+            <div class="d-flex align-items-center">
+                <div class="bg-primary bg-opacity-10 text-primary rounded-3 p-3 me-3">
+                    <i class="bi bi-piggy-bank fs-3"></i>
+                </div>
+                <div>
+                    <div class="text-muted small fw-medium">Chênh lệch (Tiết kiệm kỳ này)</div>
+                    <h4 class="fw-bold mb-0 @(netSavings >= 0 ? "text-primary" : "text-danger")">
+                        @netSavings.ToString("N0") đ
+                    </h4>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cơ cấu chi tiêu & Thu nhập theo danh mục -->
+<div class="row g-4 mb-4">
+    <!-- Cơ cấu Chi tiêu -->
+    <div class="col-12 col-lg-6">
+        <div class="card border-0 shadow-sm rounded-4 bg-white h-100 p-4">
+            <h5 class="fw-bold text-danger mb-3 d-flex align-items-center">
+                <i class="bi bi-pie-chart-fill me-2"></i>Cơ cấu Chi tiêu theo Danh mục
+            </h5>
+            @if (!expenseCategories.Any())
+            {
+                <div class="text-center py-4 text-muted small">
+                    Không có chi tiêu nào trong tháng @selectedMonth/@selectedYear.
+                </div>
+            }
+            else
+            {
+                <div class="list-group list-group-flush">
+                    @foreach (var c in expenseCategories)
+                    {
+                        <div class="list-group-item px-0 py-2 border-0">
+                            <div class="d-flex justify-content-between align-items-center mb-1 small">
+                                <span class="fw-semibold text-dark">@c.Category.Name</span>
+                                <div>
+                                    <strong class="text-danger me-2">@c.Total.ToString("N0") đ</strong>
+                                    <span class="badge bg-light text-secondary border">@c.Percentage.ToString("F1")%</span>
+                                </div>
+                            </div>
+                            <div class="progress" style="height: 6px; border-radius: 3px;">
+                                <div class="progress-bar" style="width: @c.Percentage%; background-color: @(c.Category.Color ?? "#dc3545");"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Cơ cấu Thu nhập -->
+    <div class="col-12 col-lg-6">
+        <div class="card border-0 shadow-sm rounded-4 bg-white h-100 p-4">
+            <h5 class="fw-bold text-success mb-3 d-flex align-items-center">
+                <i class="bi bi-cash-stack me-2"></i>Cơ cấu Thu nhập theo Danh mục
+            </h5>
+            @if (!incomeCategories.Any())
+            {
+                <div class="text-center py-4 text-muted small">
+                    Không có thu nhập nào trong tháng @selectedMonth/@selectedYear.
+                </div>
+            }
+            else
+            {
+                <div class="list-group list-group-flush">
+                    @foreach (var c in incomeCategories)
+                    {
+                        <div class="list-group-item px-0 py-2 border-0">
+                            <div class="d-flex justify-content-between align-items-center mb-1 small">
+                                <span class="fw-semibold text-dark">@c.Category.Name</span>
+                                <div>
+                                    <strong class="text-success me-2">+@c.Total.ToString("N0") đ</strong>
+                                    <span class="badge bg-light text-secondary border">@c.Percentage.ToString("F1")%</span>
+                                </div>
+                            </div>
+                            <div class="progress" style="height: 6px; border-radius: 3px;">
+                                <div class="progress-bar" style="width: @c.Percentage%; background-color: @(c.Category.Color ?? "#198754");"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Bảng chi tiết toàn bộ giao dịch trong kỳ -->
+<div class="card border-0 shadow-sm rounded-4 bg-white">
+    <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0 d-flex justify-content-between align-items-center">
+        <h5 class="fw-bold mb-0 text-dark">Chi tiết giao dịch trong Tháng @selectedMonth/@selectedYear</h5>
+        <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill px-3 py-2">
+            @Model.Count() giao dịch
+        </span>
+    </div>
+    <div class="card-body p-4">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light small text-muted">
+                    <tr>
+                        <th>Ngày</th>
+                        <th>Loại</th>
+                        <th>Danh mục</th>
+                        <th>Ghi chú</th>
+                        <th class="text-end">Số tiền</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted small">
+                                Không có giao dịch nào trong khoảng thời gian này.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var t in Model)
+                        {
+                            <tr>
+                                <td class="small text-secondary">@t.TransactionDate.ToString("dd/MM/yyyy")</td>
+                                <td>
+                                    @if (t.Type == "Income")
+                                    {
+                                        <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2 py-1">Thu nhập</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-2 py-1">Chi tiêu</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="fw-semibold text-dark">@(t.Category?.Name ?? "Khác")</span>
+                                </td>
+                                <td class="small text-muted">@(string.IsNullOrEmpty(t.Note) ? "-" : t.Note)</td>
+                                <td class="text-end fw-bold @(t.Type == "Income" ? "text-success" : "text-danger")">
+                                    @(t.Type == "Income" ? "+" : "-")@t.Amount.ToString("N0") đ
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,282 @@
+@model IEnumerable<BTL_LTWEB_QLChiTieu.Services.BudgetProgressViewModel>
+@{
+    ViewData["Title"] = "Quản lý Ngân sách";
+    Layout = "_Layout";
+    int selectedMonth = ViewBag.SelectedMonth ?? DateTime.Today.Month;
+    int selectedYear = ViewBag.SelectedYear ?? DateTime.Today.Year;
+    var expenseCategories = ViewBag.ExpenseCategories as List<BTL_LTWEB_QLChiTieu.Models.Category> ?? new();
+
+    decimal totalLimit = ViewBag.TotalLimit ?? 0;
+    decimal totalSpent = ViewBag.TotalSpent ?? 0;
+    decimal totalRemaining = ViewBag.TotalRemaining ?? 0;
+    double overallPercentage = ViewBag.OverallPercentage ?? 0;
+}
+
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+        <h3 class="fw-bold text-dark mb-1">Quản lý Ngân sách Chi tiêu</h3>
+        <p class="text-muted small mb-0">Thiết lập hạn mức và nhận cảnh báo tự động khi gần chạm ngưỡng 80% hoặc 100%</p>
+    </div>
+    
+    <div class="d-flex align-items-center gap-2">
+        <!-- Bộ chọn tháng / năm -->
+        <form method="get" class="d-flex align-items-center gap-2">
+            <select name="month" class="form-select form-select-sm bg-white" onchange="this.form.submit()">
+                @for (int m = 1; m <= 12; m++)
+                {
+                    <option value="@m" selected="@(selectedMonth == m)">Tháng @m</option>
+                }
+            </select>
+            <select name="year" class="form-select form-select-sm bg-white" onchange="this.form.submit()">
+                @for (int y = DateTime.Now.Year + 1; y >= DateTime.Now.Year - 2; y--)
+                {
+                    <option value="@y" selected="@(selectedYear == y)">@y</option>
+                }
+            </select>
+        </form>
+
+        <button type="button" class="btn btn-primary btn-sm rounded-3 px-3 py-2 fw-semibold text-nowrap" data-bs-toggle="modal" data-bs-target="#createBudgetModal">
+            <i class="bi bi-plus-circle me-1"></i>Thiết lập ngân sách
+        </button>
+    </div>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show rounded-3" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>@TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show rounded-3" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>@TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<!-- Thẻ tổng quan ngân sách tháng -->
+<div class="card border-0 shadow-sm rounded-4 bg-white p-4 mb-4">
+    <div class="row align-items-center">
+        <div class="col-12 col-md-4 mb-3 mb-md-0 border-md-end">
+            <span class="text-muted small fw-medium">Tổng hạn mức Tháng @selectedMonth/@selectedYear</span>
+            <h3 class="fw-bold text-dark mb-1">@totalLimit.ToString("N0") đ</h3>
+            <div class="small text-muted">
+                Đã chi: <strong class="text-danger">@totalSpent.ToString("N0") đ</strong> | 
+                Còn lại: <strong class="@(totalRemaining >= 0 ? "text-success" : "text-danger")">@totalRemaining.ToString("N0") đ</strong>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-8">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="small fw-semibold text-secondary">Tỷ lệ sử dụng tổng thể</span>
+                <span class="small fw-bold @(overallPercentage >= 100 ? "text-danger" : overallPercentage >= 80 ? "text-warning" : "text-success")">
+                    @overallPercentage.ToString("F1")%
+                </span>
+            </div>
+            <div class="progress" style="height: 12px; border-radius: 6px;">
+                <div class="progress-bar @(overallPercentage >= 100 ? "bg-danger" : overallPercentage >= 80 ? "bg-warning" : "bg-success")" 
+                     role="progressbar" 
+                     style="width: @(Math.Min(overallPercentage, 100.0))%;" 
+                     aria-valuenow="@overallPercentage" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Danh sách từng ngân sách theo danh mục -->
+<div class="row g-4">
+    @if (!Model.Any())
+    {
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-4 bg-white p-5 text-center text-muted">
+                <i class="bi bi-piggy-bank fs-1 d-block mb-3 text-secondary"></i>
+                <h5 class="fw-semibold text-dark">Chưa có ngân sách cho Tháng @selectedMonth/@selectedYear</h5>
+                <p class="small text-muted mb-3">Hãy thiết lập hạn mức cho các danh mục như Ăn uống, Nhà trọ, Đi lại để quản lý chi tiêu hiệu quả hơn!</p>
+                <div>
+                    <button type="button" class="btn btn-primary rounded-3 px-4" data-bs-toggle="modal" data-bs-target="#createBudgetModal">
+                        <i class="bi bi-plus-circle me-1"></i>Thiết lập ngân sách ngay
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        @foreach (var item in Model)
+        {
+            var b = item.Budget;
+            string barColor = item.StatusLevel == "Exceeded" ? "bg-danger" : item.StatusLevel == "Warning" ? "bg-warning" : "bg-success";
+            string textColor = item.StatusLevel == "Exceeded" ? "text-danger" : item.StatusLevel == "Warning" ? "text-warning" : "text-success";
+
+            <div class="col-12 col-md-6 col-xl-4">
+                <div class="card border-0 shadow-sm rounded-4 bg-white p-4 h-100 position-relative">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="rounded-3 d-flex align-items-center justify-content-center me-3 text-white shadow-sm" 
+                                 style="width: 44px; height: 44px; background-color: @(b.Category?.Color ?? "#dc3545");">
+                                <i class="bi @(b.Category?.Icon ?? "bi-cup-hot") fs-5"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-0 text-dark">@b.Category?.Name</h6>
+                                <span class="badge @(item.StatusLevel == "Exceeded" ? "bg-danger bg-opacity-10 text-danger" : item.StatusLevel == "Warning" ? "bg-warning bg-opacity-10 text-warning" : "bg-success bg-opacity-10 text-success") rounded-pill small">
+                                    @if (item.StatusLevel == "Exceeded")
+                                    {
+                                        <i class="bi bi-exclamation-octagon-fill me-1"></i><span>Vượt hạn mức</span>
+                                    }
+                                    else if (item.StatusLevel == "Warning")
+                                    {
+                                        <i class="bi bi-exclamation-triangle-fill me-1"></i><span>Gần chạm hạn mức</span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-check-circle-fill me-1"></i><span>Bình thường</span>
+                                    }
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-light border-0 rounded-circle" type="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots-vertical"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 p-2">
+                                <li>
+                                    <button class="dropdown-item rounded-2 small" onclick="openEditBudget(@b.BudgetId, @b.LimitAmount)">
+                                        <i class="bi bi-pencil me-2 text-primary"></i>Sửa hạn mức
+                                    </button>
+                                </li>
+                                <li>
+                                    <form asp-action="Delete" asp-route-id="@b.BudgetId" asp-route-month="@b.Month" asp-route-year="@b.Year" method="post"
+                                          onsubmit="return confirm('Bạn có chắc muốn xóa ngân sách này?');">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="dropdown-item rounded-2 small text-danger">
+                                            <i class="bi bi-trash me-2"></i>Xóa ngân sách
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Tiến trình chi tiêu -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small text-muted">Đã chi / Hạn mức</span>
+                            <span class="small fw-bold @textColor">@item.Percentage.ToString("F1")%</span>
+                        </div>
+                        <div class="progress" style="height: 10px; border-radius: 5px;">
+                            <div class="progress-bar @barColor" 
+                                 role="progressbar" 
+                                 style="width: @(Math.Min(item.Percentage, 100.0))%;" 
+                                 aria-valuenow="@item.Percentage" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center pt-2 border-top small">
+                        <div>
+                            <span class="text-muted d-block" style="font-size: 0.75rem;">ĐÃ CHI</span>
+                            <strong class="text-danger">@item.SpentAmount.ToString("N0") đ</strong>
+                        </div>
+                        <div class="text-center">
+                            <span class="text-muted d-block" style="font-size: 0.75rem;">HẠN MỨC</span>
+                            <strong class="text-dark">@b.LimitAmount.ToString("N0") đ</strong>
+                        </div>
+                        <div class="text-end">
+                            <span class="text-muted d-block" style="font-size: 0.75rem;">CÒN LẠI</span>
+                            <strong class="@(item.RemainingAmount >= 0 ? "text-success" : "text-danger")">
+                                @item.RemainingAmount.ToString("N0") đ
+                            </strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<!-- Modal Thiết Lập Ngân Sách Mới -->
+<div class="modal fade" id="createBudgetModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Thiết lập ngân sách Tháng @selectedMonth/@selectedYear</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-action="Create" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="Month" value="@selectedMonth" />
+                <input type="hidden" name="Year" value="@selectedYear" />
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Danh mục chi tiêu</label>
+                        <select name="CategoryId" class="form-select" required>
+                            @foreach (var c in expenseCategories)
+                            {
+                                <option value="@c.CategoryId">@c.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Hạn mức chi tiêu tối đa (VNĐ)</label>
+                        <div class="input-group">
+                            <input type="number" name="LimitAmount" class="form-control" min="10000" step="10000" required placeholder="2000000" />
+                            <span class="input-group-text bg-light text-muted">VNĐ</span>
+                        </div>
+                        <small class="text-muted">Hệ thống sẽ cảnh báo khi bạn chi đạt 80% và 100% hạn mức này.</small>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-3" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary rounded-3 px-4">Lưu ngân sách</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Sửa Hạn Mức Ngân Sách -->
+<div class="modal fade" id="editBudgetModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Chỉnh sửa hạn mức ngân sách</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-action="Edit" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="BudgetId" id="editBudgetId" />
+                <input type="hidden" name="Month" value="@selectedMonth" />
+                <input type="hidden" name="Year" value="@selectedYear" />
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Hạn mức chi tiêu mới (VNĐ)</label>
+                        <div class="input-group">
+                            <input type="number" name="LimitAmount" id="editLimitAmount" class="form-control" min="10000" step="10000" required />
+                            <span class="input-group-text bg-light text-muted">VNĐ</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-3" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary rounded-3 px-4">Cập nhật</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function openEditBudget(id, limit) {
+            document.getElementById('editBudgetId').value = id;
+            document.getElementById('editLimitAmount').value = limit;
+            new bootstrap.Modal(document.getElementById('editBudgetModal')).show();
+        }
+    </script>
+}

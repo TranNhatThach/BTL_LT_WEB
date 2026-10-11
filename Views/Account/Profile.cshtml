@@ -1,0 +1,113 @@
+@model BTL_LTWEB_QLChiTieu.ViewModels.ProfileViewModel
+@{
+    ViewData["Title"] = "Hồ sơ cá nhân";
+    Layout = "_Layout";
+}
+
+<div class="row justify-content-center mt-3 mb-5">
+    <div class="col-12 col-md-9 col-lg-7">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-body p-4 p-md-5">
+                <div class="d-flex align-items-center mb-4 pb-3 border-bottom">
+                    <div class="position-relative me-3">
+                        <img src="@(string.IsNullOrEmpty(Model.AvatarPath) ? "/images/default-avatar.png" : Model.AvatarPath)" 
+                             alt="Avatar" class="rounded-circle border shadow-sm object-fit-cover" 
+                             style="width: 72px; height: 72px;" id="avatarPreview" 
+                             onerror="this.src='https://ui-avatars.com/api/?name=@Uri.EscapeDataString(Model.FullName)&background=0D6EFD&color=fff';" />
+                    </div>
+                    <div>
+                        <h4 class="fw-bold mb-1 text-dark">@Model.FullName</h4>
+                        <span class="badge bg-primary bg-opacity-10 text-primary">@Model.Email</span>
+                    </div>
+                </div>
+
+                @if (TempData["SuccessMessage"] != null)
+                {
+                    <div class="alert alert-success alert-dismissible fade show rounded-3" role="alert">
+                        <i class="bi bi-check-circle-fill me-2"></i>@TempData["SuccessMessage"]
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                }
+
+                @if (!ViewData.ModelState.IsValid && ViewData.ModelState[string.Empty]?.Errors.Count > 0)
+                {
+                    <div class="alert alert-danger alert-dismissible fade show rounded-3" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        @foreach (var error in ViewData.ModelState[string.Empty]!.Errors)
+                        {
+                            <div>@error.ErrorMessage</div>
+                        }
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                }
+
+                <form asp-action="Profile" method="post" enctype="multipart/form-data" novalidate>
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="UserId" />
+                    <input type="hidden" asp-for="Email" />
+                    <input type="hidden" asp-for="AvatarPath" />
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label asp-for="FullName" class="form-label fw-semibold text-secondary small"></label>
+                            <input asp-for="FullName" class="form-control" />
+                            <span asp-validation-for="FullName" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="Email" class="form-label fw-semibold text-secondary small"></label>
+                            <input asp-for="Email" class="form-control bg-light" readonly />
+                            <small class="text-muted">Email không thể thay đổi</small>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="StudentCode" class="form-label fw-semibold text-secondary small"></label>
+                            <input asp-for="StudentCode" class="form-control bg-light" readonly />
+                            <small class="text-muted">Mã SV cố định</small>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="SchoolName" class="form-label fw-semibold text-secondary small"></label>
+                            <input asp-for="SchoolName" class="form-control" placeholder="Trường học" />
+                            <span asp-validation-for="SchoolName" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="ClassName" class="form-label fw-semibold text-secondary small"></label>
+                            <input asp-for="ClassName" class="form-control" placeholder="Lớp học" />
+                            <span asp-validation-for="ClassName" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12">
+                            <label asp-for="AvatarFile" class="form-label fw-semibold text-secondary small"></label>
+                            <input asp-for="AvatarFile" class="form-control" type="file" accept="image/*" onchange="previewImage(this)" />
+                            <span asp-validation-for="AvatarFile" class="text-danger small"></span>
+                            <small class="text-muted">Chấp nhận JPG, PNG, WEBP (tối đa 2MB)</small>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-2">
+                        <button type="submit" class="btn btn-primary px-4 py-2 rounded-3 fw-semibold shadow-sm">
+                            <i class="bi bi-save me-2"></i>Lưu thay đổi
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    document.getElementById('avatarPreview').src = e.target.result;
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+    </script>
+}

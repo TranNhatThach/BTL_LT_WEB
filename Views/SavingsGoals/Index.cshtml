@@ -1,0 +1,307 @@
+@model IEnumerable<BTL_LTWEB_QLChiTieu.Controllers.SavingsGoalItemViewModel>
+@{
+    ViewData["Title"] = "Mục tiêu Tiết kiệm";
+    Layout = "_Layout";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold text-dark mb-1">Mục tiêu Tiết kiệm</h3>
+        <p class="text-muted small mb-0">Lên kế hoạch và tự động tính toán số tiền bạn cần tiết kiệm mỗi ngày</p>
+    </div>
+    <button type="button" class="btn btn-primary rounded-3 shadow-sm px-3 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#createGoalModal">
+        <i class="bi bi-plus-circle me-1"></i>Tạo mục tiêu mới
+    </button>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show rounded-3" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>@TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show rounded-3" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>@TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="row g-4">
+    @if (!Model.Any())
+    {
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-4 bg-white p-5 text-center text-muted">
+                <i class="bi bi-piggy-bank fs-1 d-block mb-3 text-secondary"></i>
+                <h5 class="fw-semibold text-dark">Bạn chưa có mục tiêu tiết kiệm nào</h5>
+                <p class="small text-muted mb-3">Hãy đặt mục tiêu như "Mua laptop", "Đóng học phí", "Đi du lịch" để có động lực tích lũy nhé!</p>
+                <div>
+                    <button type="button" class="btn btn-primary rounded-3 px-4" data-bs-toggle="modal" data-bs-target="#createGoalModal">
+                        <i class="bi bi-plus-circle me-1"></i>Tạo mục tiêu đầu tiên
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        @foreach (var item in Model)
+        {
+            var g = item.Goal;
+            string statusBadgeClass = item.Status == "Completed" ? "bg-success bg-opacity-10 text-success" 
+                                    : item.Status == "Overdue" ? "bg-danger bg-opacity-10 text-danger" 
+                                    : "bg-primary bg-opacity-10 text-primary";
+            string statusText = item.Status == "Completed" ? "Đã hoàn thành" 
+                              : item.Status == "Overdue" ? "Đã quá hạn" 
+                              : "Đang tích lũy";
+
+            <div class="col-12 col-md-6 col-xl-4">
+                <div class="card border-0 shadow-sm rounded-4 bg-white p-4 h-100 d-flex flex-column position-relative">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <span class="badge @statusBadgeClass rounded-pill mb-1 small">
+                                @if (item.Status == "Completed")
+                                {
+                                    <i class="bi bi-check-circle-fill me-1"></i>
+                                }
+                                else if (item.Status == "Overdue")
+                                {
+                                    <i class="bi bi-clock-history me-1"></i>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-hourglass-split me-1"></i>
+                                }
+                                @statusText
+                            </span>
+                            <h5 class="fw-bold text-dark mb-0">@g.Name</h5>
+                        </div>
+
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-light border-0 rounded-circle" type="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots-vertical"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 p-2">
+                                <li>
+                                    <button class="dropdown-item rounded-2 small text-primary" 
+                                            onclick="openDepositModal(@g.GoalId, '@Html.Raw(g.Name)', @g.CurrentAmount, @g.TargetAmount)">
+                                        <i class="bi bi-cash-coin me-2"></i>Nạp thêm tiền
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item rounded-2 small" 
+                                            onclick="openEditGoal(@g.GoalId, '@Html.Raw(g.Name)', @g.TargetAmount, @g.CurrentAmount, '@g.Deadline.ToString("yyyy-MM-dd")')">
+                                        <i class="bi bi-pencil me-2"></i>Sửa mục tiêu
+                                    </button>
+                                </li>
+                                <li><hr class="dropdown-divider my-1"></li>
+                                <li>
+                                    <form asp-action="Delete" asp-route-id="@g.GoalId" method="post"
+                                          onsubmit="return confirm('Bạn có chắc muốn xóa mục tiêu tiết kiệm này?');">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="dropdown-item rounded-2 small text-danger">
+                                            <i class="bi bi-trash me-2"></i>Xóa mục tiêu
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Tiến độ % -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small text-muted">Hiện có: <strong class="text-dark">@g.CurrentAmount.ToString("N0") đ</strong></span>
+                            <span class="small fw-bold text-primary">@item.Percentage.ToString("F1")%</span>
+                        </div>
+                        <div class="progress" style="height: 10px; border-radius: 5px;">
+                            <div class="progress-bar @(item.Status == "Completed" ? "bg-success" : "bg-primary")" 
+                                 role="progressbar" 
+                                 style="width: @item.Percentage%;" 
+                                 aria-valuenow="@item.Percentage" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+
+                    <!-- Thống kê mục tiêu & Số tiền cần tiết kiệm mỗi ngày -->
+                    <div class="bg-light rounded-3 p-3 mb-3 small flex-grow-1">
+                        <div class="d-flex justify-content-between py-1">
+                            <span class="text-muted">Mục tiêu:</span>
+                            <strong class="text-dark">@g.TargetAmount.ToString("N0") đ</strong>
+                        </div>
+                        <div class="d-flex justify-content-between py-1">
+                            <span class="text-muted">Còn thiếu:</span>
+                            <strong class="text-danger">@item.RemainingAmount.ToString("N0") đ</strong>
+                        </div>
+                        <div class="d-flex justify-content-between py-1">
+                            <span class="text-muted">Hạn chót:</span>
+                            <span class="fw-semibold">@g.Deadline.ToString("dd/MM/yyyy")</span>
+                        </div>
+                        <div class="d-flex justify-content-between py-1 border-top mt-1 pt-1">
+                            <span class="text-muted">Số ngày còn lại:</span>
+                            <span class="fw-semibold @(item.DaysRemaining < 7 ? "text-danger" : "text-dark")">
+                                @(item.DaysRemaining > 0 ? $"{item.DaysRemaining} ngày" : "Đã hết hạn")
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Hộp tính số tiền cần tiết kiệm mỗi ngày (Mục 7.1 Đặc Tả) -->
+                    <div class="p-2 rounded-3 text-center @(item.Status == "Completed" ? "bg-success bg-opacity-10 text-success" : "bg-warning bg-opacity-10 text-dark")">
+                        @if (item.Status == "Completed")
+                        {
+                            <span class="small fw-bold"><i class="bi bi-trophy-fill me-1"></i>Đã đạt được mục tiêu!</span>
+                        }
+                        else if (item.Status == "Overdue")
+                        {
+                            <span class="small text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>Đã quá thời hạn hoàn thành</span>
+                        }
+                        else
+                        {
+                            <div class="small text-muted" style="font-size: 0.75rem;">CẦN TIẾT KIỆM MỖI NGÀY</div>
+                            <h6 class="fw-bold text-dark mb-0">@item.DailySavingsNeeded.ToString("N0") đ / ngày</h6>
+                        }
+                    </div>
+
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-outline-primary w-100 rounded-3 btn-sm fw-semibold" 
+                                onclick="openDepositModal(@g.GoalId, '@Html.Raw(g.Name)', @g.CurrentAmount, @g.TargetAmount)">
+                            <i class="bi bi-plus-lg me-1"></i>Nạp tiền vào quỹ
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<!-- Modal Nạp Thêm Tiền -->
+<div class="modal fade" id="depositModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Nạp tiền vào quỹ tiết kiệm</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-action="Deposit" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" id="depositGoalId" />
+                <div class="modal-body">
+                    <p class="text-muted small">Mục tiêu: <strong id="depositGoalName" class="text-dark"></strong></p>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Số tiền muốn nạp thêm (VNĐ)</label>
+                        <div class="input-group">
+                            <input type="number" name="depositAmount" class="form-control" min="1000" step="1000" required placeholder="100000" />
+                            <span class="input-group-text bg-light text-muted">VNĐ</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-3" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary rounded-3 px-4">Xác nhận nạp</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Tạo Mục Tiêu Mới -->
+<div class="modal fade" id="createGoalModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Tạo mục tiêu tiết kiệm mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-action="Create" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Tên mục tiêu</label>
+                        <input type="text" name="Name" class="form-control" required placeholder="Ví dụ: Mua laptop mới, Quỹ du lịch..." />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Số tiền mục tiêu (VNĐ)</label>
+                        <div class="input-group">
+                            <input type="number" name="TargetAmount" class="form-control" min="10000" step="10000" required placeholder="15000000" />
+                            <span class="input-group-text bg-light text-muted">VNĐ</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Số tiền hiện có (nếu có)</label>
+                        <div class="input-group">
+                            <input type="number" name="CurrentAmount" class="form-control" min="0" step="10000" value="0" />
+                            <span class="input-group-text bg-light text-muted">VNĐ</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Hạn chót hoàn thành</label>
+                        <input type="date" name="Deadline" class="form-control" min="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")" required />
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-3" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary rounded-3 px-4">Tạo mục tiêu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Sửa Mục Tiêu -->
+<div class="modal fade" id="editGoalModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Chỉnh sửa mục tiêu</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-action="Edit" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="GoalId" id="editGoalId" />
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Tên mục tiêu</label>
+                        <input type="text" name="Name" id="editGoalName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Số tiền mục tiêu (VNĐ)</label>
+                        <input type="number" name="TargetAmount" id="editTargetAmount" class="form-control" min="10000" step="10000" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Số tiền hiện có (VNĐ)</label>
+                        <input type="number" name="CurrentAmount" id="editCurrentAmount" class="form-control" min="0" step="10000" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Hạn chót hoàn thành</label>
+                        <input type="date" name="Deadline" id="editDeadline" class="form-control" required />
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-3" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary rounded-3 px-4">Lưu thay đổi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function openDepositModal(id, name, current, target) {
+            document.getElementById('depositGoalId').value = id;
+            document.getElementById('depositGoalName').textContent = name;
+            new bootstrap.Modal(document.getElementById('depositModal')).show();
+        }
+
+        function openEditGoal(id, name, target, current, deadline) {
+            document.getElementById('editGoalId').value = id;
+            document.getElementById('editGoalName').value = name;
+            document.getElementById('editTargetAmount').value = target;
+            document.getElementById('editCurrentAmount').value = current;
+            document.getElementById('editDeadline').value = deadline;
+            new bootstrap.Modal(document.getElementById('editGoalModal')).show();
+        }
+    </script>
+}

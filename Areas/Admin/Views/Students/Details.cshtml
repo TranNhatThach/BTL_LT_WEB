@@ -1,0 +1,101 @@
+@model BTL_LTWEB_QLChiTieu.Models.AppUser
+@{
+    ViewData["Title"] = $"Chi tiết sinh viên: {Model.FullName}";
+    Layout = "_AdminLayout";
+    decimal totalIncome = ViewBag.TotalIncome;
+    decimal totalExpense = ViewBag.TotalExpense;
+    decimal balance = ViewBag.Balance;
+}
+
+<div class="mb-4">
+    <a asp-action="Index" class="btn btn-outline-secondary btn-sm rounded-pill mb-3">
+        <i class="bi bi-arrow-left me-1"></i>Quay lại danh sách
+    </a>
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h3 class="fw-bold text-dark mb-1">Hồ sơ sinh viên: @Model.FullName</h3>
+            <p class="text-muted small mb-0">Mã sinh viên: @Model.StudentCode | Email: @Model.Email</p>
+        </div>
+        <div>
+            @if (Model.IsActive)
+            {
+                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-2">
+                    <i class="bi bi-check-circle me-1"></i>Tài khoản đang hoạt động
+                </span>
+            }
+            else
+            {
+                <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3 py-2">
+                    <i class="bi bi-lock me-1"></i>Tài khoản đã bị khóa
+                </span>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm rounded-4 bg-white p-4 text-center">
+            <img src="https://ui-avatars.com/api/?name=@Uri.EscapeDataString(Model.FullName)&background=0D6EFD&color=fff&size=128" 
+                 alt="" class="rounded-circle mx-auto mb-3 border shadow-sm" style="width: 96px; height: 96px;" />
+            <h5 class="fw-bold text-dark mb-1">@Model.FullName</h5>
+            <div class="text-muted small mb-3">@Model.SchoolName - @Model.ClassName</div>
+
+            <div class="text-start border-top pt-3 small">
+                <div class="d-flex justify-content-between py-1">
+                    <span class="text-muted">Mã sinh viên:</span>
+                    <span class="fw-semibold">@Model.StudentCode</span>
+                </div>
+                <div class="d-flex justify-content-between py-1">
+                    <span class="text-muted">Email:</span>
+                    <span class="fw-semibold">@Model.Email</span>
+                </div>
+                <div class="d-flex justify-content-between py-1">
+                    <span class="text-muted">Ngày đăng ký:</span>
+                    <span class="fw-semibold">@Model.CreatedAt.ToString("dd/MM/yyyy")</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-8">
+        <div class="row g-3 mb-3">
+            <div class="col-4">
+                <div class="card border-0 shadow-sm rounded-4 bg-white p-3 text-center">
+                    <div class="text-success small fw-medium">Tổng thu nhập</div>
+                    <h5 class="fw-bold text-success mb-0">@totalIncome.ToString("N0") đ</h5>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="card border-0 shadow-sm rounded-4 bg-white p-3 text-center">
+                    <div class="text-danger small fw-medium">Tổng chi tiêu</div>
+                    <h5 class="fw-bold text-danger mb-0">@totalExpense.ToString("N0") đ</h5>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="card border-0 shadow-sm rounded-4 bg-white p-3 text-center">
+                    <div class="text-primary small fw-medium">Số dư hiện tại</div>
+                    <h5 class="fw-bold @(balance >= 0 ? "text-primary" : "text-danger") mb-0">@balance.ToString("N0") đ</h5>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm rounded-4 bg-white p-4">
+            <h6 class="fw-bold text-dark mb-3">Dữ liệu hoạt động</h6>
+            <div class="row g-3">
+                <div class="col-4 text-center border-end">
+                    <div class="fs-4 fw-bold text-dark">@Model.Transactions.Count</div>
+                    <div class="small text-muted">Giao dịch đã tạo</div>
+                </div>
+                <div class="col-4 text-center border-end">
+                    <div class="fs-4 fw-bold text-dark">@Model.Budgets.Count</div>
+                    <div class="small text-muted">Ngân sách thiết lập</div>
+                </div>
+                <div class="col-4 text-center">
+                    <div class="fs-4 fw-bold text-dark">@Model.SavingsGoals.Count</div>
+                    <div class="small text-muted">Mục tiêu tiết kiệm</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,381 @@
+@model IEnumerable<BTL_LTWEB_QLChiTieu.Models.Transaction>
+@{
+    ViewData["Title"] = "Lịch sử Giao dịch";
+    Layout = "_Layout";
+    var categories = ViewBag.Categories as List<BTL_LTWEB_QLChiTieu.Models.Category> ?? new();
+    decimal totalIncome = ViewBag.TotalIncome ?? 0;
+    decimal totalExpense = ViewBag.TotalExpense ?? 0;
+    decimal balance = ViewBag.Balance ?? 0;
+    int? currentMonth = ViewBag.Month;
+    int? currentYear = ViewBag.Year;
+    string? currentType = ViewBag.Type;
+    int? currentCategoryId = ViewBag.CategoryId;
+    string? currentKeyword = ViewBag.Keyword;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold text-dark mb-1">Lịch sử Giao dịch</h3>
+        <p class="text-muted small mb-0">Theo dõi toàn bộ các khoản thu và chi tiêu của bạn</p>
+    </div>
+    <button type="button" class="btn btn-primary rounded-3 shadow-sm px-3 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#createTransactionModal">
+        <i class="bi bi-plus-circle me-1"></i>Thêm giao dịch mới
+    </button>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show rounded-3" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>@TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show rounded-3" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>@TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<!-- 3 Thẻ thống kê tài chính -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm rounded-4 bg-white p-3">
+            <div class="d-flex align-items-center">
+                <div class="bg-primary bg-opacity-10 text-primary rounded-3 p-3 me-3">
+                    <i class="bi bi-wallet2 fs-3"></i>
+                </div>
+                <div>
+                    <div class="text-muted small fw-medium">Số dư hiện tại</div>
+                    <h4 class="fw-bold mb-0 @(balance >= 0 ? "text-primary" : "text-danger")">@balance.ToString("N0") đ</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm rounded-4 bg-white p-3">
+            <div class="d-flex align-items-center">
+                <div class="bg-success bg-opacity-10 text-success rounded-3 p-3 me-3">
+                    <i class="bi bi-arrow-down-left-circle fs-3"></i>
+                </div>
+                <div>
+                    <div class="text-muted small fw-medium">Tổng thu nhập</div>
+                    <h4 class="fw-bold mb-0 text-success">@totalIncome.ToString("N0") đ</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm rounded-4 bg-white p-3">
+            <div class="d-flex align-items-center">
+                <div class="bg-danger bg-opacity-10 text-danger rounded-3 p-3 me-3">
+                    <i class="bi bi-arrow-up-right-circle fs-3"></i>
+                </div>
+                <div>
+                    <div class="text-muted small fw-medium">Tổng chi tiêu</div>
+                    <h4 class="fw-bold mb-0 text-danger">@totalExpense.ToString("N0") đ</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bộ lọc giao dịch -->
+<div class="card border-0 shadow-sm rounded-4 bg-white mb-4">
+    <div class="card-body p-4">
+        <form id="filterForm" class="row g-3">
+            <input type="hidden" name="page" id="filterPage" value="1" />
+
+            <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold text-secondary">Tháng</label>
+                <select name="month" class="form-select bg-light">
+                    <option value="">Tất cả</option>
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        <option value="@m" selected="@(currentMonth == m)">Tháng @m</option>
+                    }
+                </select>
+            </div>
+
+            <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold text-secondary">Năm</label>
+                <select name="year" class="form-select bg-light">
+                    <option value="">Tất cả</option>
+                    @for (int y = DateTime.Now.Year; y >= DateTime.Now.Year - 3; y--)
+                    {
+                        <option value="@y" selected="@(currentYear == y)">@y</option>
+                    }
+                </select>
+            </div>
+
+            <div class="col-6 col-md-2">
+                <label class="form-label small fw-semibold text-secondary">Loại</label>
+                <select name="type" class="form-select bg-light">
+                    <option value="All" selected="@(currentType == "All" || string.IsNullOrEmpty(currentType))">Tất cả</option>
+                    <option value="Expense" selected="@(currentType == "Expense")">Chi tiêu</option>
+                    <option value="Income" selected="@(currentType == "Income")">Thu nhập</option>
+                </select>
+            </div>
+
+            <div class="col-6 col-md-3">
+                <label class="form-label small fw-semibold text-secondary">Danh mục</label>
+                <select name="categoryId" class="form-select bg-light">
+                    <option value="">Tất cả danh mục</option>
+                    @foreach (var c in categories)
+                    {
+                        <option value="@c.CategoryId" selected="@(currentCategoryId == c.CategoryId)">
+                            @(c.Type == "Income" ? "[Thu]" : "[Chi]") @c.Name
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <div class="col-12 col-md-3">
+                <label class="form-label small fw-semibold text-secondary">Từ khóa tìm kiếm</label>
+                <div class="input-group">
+                    <input type="text" name="keyword" value="@currentKeyword" class="form-control bg-light" placeholder="Ghi chú, tên..." />
+                    <button type="submit" class="btn btn-primary" title="Lọc dữ liệu">
+                        <i class="bi bi-search"></i>
+                    </button>
+                    <a asp-action="Index" class="btn btn-outline-secondary" title="Xóa lọc">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Khung danh sách giao dịch (nạp qua AJAX) -->
+<div class="card border-0 shadow-sm rounded-4 bg-white">
+    <div class="card-body p-4" id="transactionListContainer">
+        <partial name="_TransactionListPartial" model="Model" />
+    </div>
+</div>
+
+<!-- Modal Thêm Giao Dịch Mới -->
+<div class="modal fade" id="createTransactionModal" tabindex="-1" aria-labelledby="createTransactionModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="createTransactionModalLabel">Ghi nhận giao dịch mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-action="Create" method="post" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+                <div class="modal-body">
+                    <!-- Chọn loại giao dịch -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Loại giao dịch</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="Type" id="createTypeExpense" value="Expense" checked onchange="filterModalCategories('create', 'Expense')">
+                            <label class="btn btn-outline-danger" for="createTypeExpense">
+                                <i class="bi bi-arrow-up-right me-1"></i>Chi tiêu
+                            </label>
+
+                            <input type="radio" class="btn-check" name="Type" id="createTypeIncome" value="Income" onchange="filterModalCategories('create', 'Income')">
+                            <label class="btn btn-outline-success" for="createTypeIncome">
+                                <i class="bi bi-arrow-down-left me-1"></i>Thu nhập
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Chọn danh mục -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Danh mục</label>
+                        <select name="CategoryId" id="createCategoryId" class="form-select" required>
+                            @foreach (var c in categories.Where(c => c.Type == "Expense"))
+                            {
+                                <option value="@c.CategoryId" data-type="@c.Type">@c.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Số tiền -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Số tiền (VNĐ)</label>
+                        <div class="input-group">
+                            <input type="number" name="Amount" class="form-control" min="1000" step="1000" required placeholder="50000" />
+                            <span class="input-group-text bg-light text-muted">VNĐ</span>
+                        </div>
+                    </div>
+
+                    <!-- Ngày giao dịch -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Ngày giao dịch</label>
+                        <input type="date" name="TransactionDate" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" max="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                    </div>
+
+                    <!-- Ghi chú -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Ghi chú</label>
+                        <textarea name="Note" class="form-control" rows="2" placeholder="Ví dụ: Ăn trưa cơm tấm, Mua sách..."></textarea>
+                    </div>
+
+                    <!-- Ảnh hóa đơn -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Ảnh hóa đơn (tùy chọn)</label>
+                        <input type="file" name="invoiceFile" class="form-control" accept="image/*" />
+                        <small class="text-muted">Chấp nhận JPG, PNG, WEBP (tối đa 5MB)</small>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-3" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary rounded-3 px-4">Lưu giao dịch</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Chỉnh Sửa Giao Dịch -->
+<div class="modal fade" id="editTransactionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Chỉnh sửa giao dịch</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-action="Edit" method="post" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="TransactionId" id="editTransactionId" />
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Loại giao dịch</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="Type" id="editTypeExpense" value="Expense" onchange="filterModalCategories('edit', 'Expense')">
+                            <label class="btn btn-outline-danger" for="editTypeExpense">Chi tiêu</label>
+
+                            <input type="radio" class="btn-check" name="Type" id="editTypeIncome" value="Income" onchange="filterModalCategories('edit', 'Income')">
+                            <label class="btn btn-outline-success" for="editTypeIncome">Thu nhập</label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Danh mục</label>
+                        <select name="CategoryId" id="editCategoryId" class="form-select" required>
+                            <!-- Nạp động qua JS -->
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Số tiền (VNĐ)</label>
+                        <input type="number" name="Amount" id="editAmount" class="form-control" min="1000" step="1000" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Ngày giao dịch</label>
+                        <input type="date" name="TransactionDate" id="editTransactionDate" class="form-control" max="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Ghi chú</label>
+                        <textarea name="Note" id="editNote" class="form-control" rows="2"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Thay đổi ảnh hóa đơn</label>
+                        <input type="file" name="invoiceFile" class="form-control" accept="image/*" />
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-3" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary rounded-3 px-4">Cập nhật</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Xem Ảnh Hóa Đơn -->
+<div class="modal fade" id="invoiceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow rounded-4 overflow-hidden">
+            <div class="modal-header border-0 bg-dark text-white">
+                <h6 class="modal-title mb-0"><i class="bi bi-receipt me-2"></i>Ảnh hóa đơn chứng từ</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 text-center bg-black">
+                <img src="" id="invoiceImagePreview" class="img-fluid" style="max-height: 80vh; object-fit: contain;" alt="Hóa đơn" />
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const allCategories = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(categories.Select(c => new { c.CategoryId, c.Name, c.Type })));
+
+        function filterModalCategories(prefix, type, selectedId = null) {
+            const select = document.getElementById(prefix + 'CategoryId');
+            select.innerHTML = '';
+            const filtered = allCategories.filter(c => c.Type === type);
+            filtered.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.CategoryId;
+                opt.textContent = c.Name;
+                if (selectedId && c.CategoryId === selectedId) {
+                    opt.selected = true;
+                }
+                select.appendChild(opt);
+            });
+        }
+
+        // Lọc AJAX khi gửi form
+        $('#filterForm').on('submit', function (e) {
+            e.preventDefault();
+            $('#filterPage').val(1);
+            loadTransactionsData();
+        });
+
+        function loadTransactionsPage(page) {
+            $('#filterPage').val(page);
+            loadTransactionsData();
+        }
+
+        function loadTransactionsData() {
+            const url = '@Url.Action("Index")';
+            const formData = $('#filterForm').serialize();
+
+            $('#transactionListContainer').html('<div class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm me-2 text-primary"></div>Đang tải dữ liệu...</div>');
+
+            $.ajax({
+                url: url,
+                type: 'GET',
+                data: formData,
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+                success: function (data) {
+                    $('#transactionListContainer').html(data);
+                },
+                error: function () {
+                    alert('Không thể tải dữ liệu giao dịch. Vui lòng thử lại!');
+                }
+            });
+        }
+
+        function viewInvoice(url) {
+            $('#invoiceImagePreview').attr('src', url);
+            new bootstrap.Modal(document.getElementById('invoiceModal')).show();
+        }
+
+        function openEditTransaction(id) {
+            $.get('@Url.Action("GetById")/' + id, function (data) {
+                $('#editTransactionId').val(data.transactionId);
+                $('#editAmount').val(data.amount);
+                $('#editTransactionDate').val(data.transactionDate);
+                $('#editNote').val(data.note);
+
+                if (data.type === 'Expense') {
+                    $('#editTypeExpense').prop('checked', true);
+                } else {
+                    $('#editTypeIncome').prop('checked', true);
+                }
+
+                filterModalCategories('edit', data.type, data.categoryId);
+                new bootstrap.Modal(document.getElementById('editTransactionModal')).show();
+            });
+        }
+    </script>
+}

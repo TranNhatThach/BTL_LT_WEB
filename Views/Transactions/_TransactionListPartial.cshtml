@@ -1,0 +1,128 @@
+@model IEnumerable<BTL_LTWEB_QLChiTieu.Models.Transaction>
+@{
+    int currentPage = ViewBag.CurrentPage ?? 1;
+    int totalPages = ViewBag.TotalPages ?? 1;
+    int totalCount = ViewBag.TotalCount ?? 0;
+}
+
+<div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+        <thead class="table-light small text-muted">
+            <tr>
+                <th>Ngày giao dịch</th>
+                <th>Danh mục</th>
+                <th>Loại</th>
+                <th>Số tiền</th>
+                <th>Ghi chú</th>
+                <th>Hóa đơn</th>
+                <th class="text-end">Hành động</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!Model.Any())
+            {
+                <tr>
+                    <td colspan="7" class="text-center py-5 text-muted">
+                        <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
+                        Không có giao dịch nào phù hợp với bộ lọc hiện tại.
+                    </td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var t in Model)
+                {
+                    <tr>
+                        <td class="small fw-semibold text-secondary">
+                            <i class="bi bi-calendar-event me-1"></i>@t.TransactionDate.ToString("dd/MM/yyyy")
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="rounded-3 d-flex align-items-center justify-content-center me-2 text-white shadow-sm" 
+                                     style="width: 32px; height: 32px; background-color: @(t.Category?.Color ?? "#6c757d");">
+                                    <i class="bi @(t.Category?.Icon ?? "bi-tag") small"></i>
+                                </div>
+                                <span class="fw-semibold text-dark">@(t.Category?.Name ?? "Khác")</span>
+                            </div>
+                        </td>
+                        <td>
+                            @if (t.Type == "Income")
+                            {
+                                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2 py-1">
+                                    <i class="bi bi-arrow-down-left me-1"></i>Thu nhập
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-2 py-1">
+                                    <i class="bi bi-arrow-up-right me-1"></i>Chi tiêu
+                                </span>
+                            }
+                        </td>
+                        <td class="fw-bold fs-6 @(t.Type == "Income" ? "text-success" : "text-danger")">
+                            @(t.Type == "Income" ? "+" : "-")@t.Amount.ToString("N0") đ
+                        </td>
+                        <td class="small text-muted text-truncate" style="max-width: 200px;" title="@t.Note">
+                            @(string.IsNullOrEmpty(t.Note) ? "-" : t.Note)
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(t.InvoiceImagePath))
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-2 py-1" 
+                                        onclick="viewInvoice('@t.InvoiceImagePath')" title="Xem ảnh hóa đơn">
+                                    <i class="bi bi-receipt me-1"></i>Xem ảnh
+                                </button>
+                            }
+                            else
+                            {
+                                <span class="text-muted small">-</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end gap-1">
+                                <button type="button" class="btn btn-sm btn-light border" 
+                                        onclick="openEditTransaction(@t.TransactionId)" title="Chỉnh sửa">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+
+                                <form asp-action="Delete" asp-route-id="@t.TransactionId" method="post" class="d-inline"
+                                      onsubmit="return confirm('Bạn có chắc chắn muốn xóa giao dịch này? Số dư và ngân sách sẽ được tính toán lại.');">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+<!-- Phân trang AJAX -->
+@if (totalPages > 1)
+{
+    <div class="d-flex justify-content-between align-items-center mt-4">
+        <div class="small text-muted">
+            Hiển thị trang <strong>@currentPage</strong> / <strong>@totalPages</strong> (Tổng @totalCount giao dịch)
+        </div>
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                <li class="page-item @(currentPage <= 1 ? "disabled" : "")">
+                    <a class="page-link" href="javascript:void(0)" onclick="loadTransactionsPage(@(currentPage - 1))">Trước</a>
+                </li>
+                @for (int p = 1; p <= totalPages; p++)
+                {
+                    <li class="page-item @(p == currentPage ? "active" : "")">
+                        <a class="page-link" href="javascript:void(0)" onclick="loadTransactionsPage(@p)">@p</a>
+                    </li>
+                }
+                <li class="page-item @(currentPage >= totalPages ? "disabled" : "")">
+                    <a class="page-link" href="javascript:void(0)" onclick="loadTransactionsPage(@(currentPage + 1))">Sau</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+}
