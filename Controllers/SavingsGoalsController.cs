@@ -28,6 +28,7 @@ public class SavingsGoalsController : Controller
         int userId = GetCurrentUserId();
 
         var goals = await _context.SavingsGoals
+            .AsNoTracking()
             .Where(s => s.UserId == userId)
             .OrderBy(s => s.Deadline)
             .ToListAsync();

@@ -1,114 +1,61 @@
 @model BTL_LTWEB_QLChiTieu.ViewModels.RegisterViewModel
 @{
-    ViewData["Title"] = "Đăng ký tài khoản";
+    ViewData["Title"] = "Đăng ký";
     Layout = "_Layout";
 }
 
-<div class="row justify-content-center mt-3 mb-5">
-    <div class="col-12 col-md-9 col-lg-6">
-        <div class="card shadow-sm border-0 rounded-4">
-            <div class="card-body p-4 p-md-5">
-                <div class="text-center mb-4">
-                    <div class="d-inline-flex align-items-center justify-content-center bg-success bg-opacity-10 text-success rounded-circle mb-3" style="width: 64px; height: 64px;">
-                        <i class="bi bi-person-plus-fill fs-2"></i>
-                    </div>
-                    <h3 class="fw-bold text-dark">Tạo tài khoản mới</h3>
-                    <p class="text-muted small">Bắt đầu quản lý tài chính sinh viên thông minh hơn</p>
+<div class="row justify-content-center my-5">
+    <div class="col-12 col-sm-9 col-md-6 col-lg-4">
+        <div class="card shadow-sm border rounded-3 p-3 p-sm-4 bg-white">
+            <div class="text-center mb-4">
+                <h4 class="fw-bold mb-1">Đăng ký tài khoản</h4>
+                <p class="text-muted small mb-0">Quản lý Chi tiêu Sinh viên</p>
+            </div>
+
+            @if (!ViewData.ModelState.IsValid && ViewData.ModelState[string.Empty]?.Errors.Count > 0)
+            {
+                <div class="alert alert-danger py-2 small mb-3">
+                    @foreach (var error in ViewData.ModelState[string.Empty]!.Errors)
+                    {
+                        <div>@error.ErrorMessage</div>
+                    }
+                </div>
+            }
+
+            <form asp-action="Register" method="post">
+                @Html.AntiForgeryToken()
+
+                <div class="mb-3">
+                    <label asp-for="FullName" class="form-label small fw-semibold">Họ và tên</label>
+                    <input asp-for="FullName" class="form-control" placeholder="Nguyễn Văn A" autofocus />
+                    <span asp-validation-for="FullName" class="text-danger small"></span>
                 </div>
 
-                @if (!ViewData.ModelState.IsValid && ViewData.ModelState[string.Empty]?.Errors.Count > 0)
-                {
-                    <div class="alert alert-danger alert-dismissible fade show rounded-3" role="alert">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                        @foreach (var error in ViewData.ModelState[string.Empty]!.Errors)
-                        {
-                            <div>@error.ErrorMessage</div>
-                        }
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                }
-
-                <form asp-action="Register" method="post" novalidate>
-                    @Html.AntiForgeryToken()
-
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label asp-for="FullName" class="form-label fw-semibold text-secondary small"></label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light text-muted"><i class="bi bi-person"></i></span>
-                                <input asp-for="FullName" class="form-control bg-light" placeholder="Nguyễn Văn A" />
-                            </div>
-                            <span asp-validation-for="FullName" class="text-danger small"></span>
-                        </div>
-
-                        <div class="col-12 col-md-6">
-                            <label asp-for="Email" class="form-label fw-semibold text-secondary small"></label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light text-muted"><i class="bi bi-envelope"></i></span>
-                                <input asp-for="Email" class="form-control bg-light" placeholder="sv@utc.edu.vn" />
-                            </div>
-                            <span asp-validation-for="Email" class="text-danger small"></span>
-                        </div>
-
-                        <div class="col-12 col-md-6">
-                            <label asp-for="StudentCode" class="form-label fw-semibold text-secondary small"></label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light text-muted"><i class="bi bi-card-heading"></i></span>
-                                <input asp-for="StudentCode" class="form-control bg-light" placeholder="211200001" />
-                            </div>
-                            <span asp-validation-for="StudentCode" class="text-danger small"></span>
-                        </div>
-
-                        <div class="col-12 col-md-6">
-                            <label asp-for="SchoolName" class="form-label fw-semibold text-secondary small"></label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light text-muted"><i class="bi bi-mortarboard"></i></span>
-                                <input asp-for="SchoolName" class="form-control bg-light" placeholder="ĐH Giao thông Vận tải" />
-                            </div>
-                            <span asp-validation-for="SchoolName" class="text-danger small"></span>
-                        </div>
-
-                        <div class="col-12 col-md-6">
-                            <label asp-for="ClassName" class="form-label fw-semibold text-secondary small"></label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light text-muted"><i class="bi bi-people"></i></span>
-                                <input asp-for="ClassName" class="form-control bg-light" placeholder="CNTT K62" />
-                            </div>
-                            <span asp-validation-for="ClassName" class="text-danger small"></span>
-                        </div>
-
-                        <div class="col-12 col-md-6">
-                            <label asp-for="Password" class="form-label fw-semibold text-secondary small"></label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light text-muted"><i class="bi bi-lock"></i></span>
-                                <input asp-for="Password" class="form-control bg-light" placeholder="••••••••" />
-                            </div>
-                            <span asp-validation-for="Password" class="text-danger small"></span>
-                        </div>
-
-                        <div class="col-12 col-md-6">
-                            <label asp-for="ConfirmPassword" class="form-label fw-semibold text-secondary small"></label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light text-muted"><i class="bi bi-lock-fill"></i></span>
-                                <input asp-for="ConfirmPassword" class="form-control bg-light" placeholder="••••••••" />
-                            </div>
-                            <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
-                        </div>
-                    </div>
-
-                    <div class="mt-4">
-                        <button type="submit" class="btn btn-success w-100 py-2 rounded-3 fw-semibold shadow-sm">
-                            <i class="bi bi-check-circle me-2"></i>Hoàn tất đăng ký
-                        </button>
-                    </div>
-                </form>
-
-                <div class="text-center mt-4 pt-2 border-top">
-                    <p class="text-secondary small mb-0">
-                        Đã có tài khoản?
-                        <a asp-action="Login" class="text-primary text-decoration-none fw-semibold">Đăng nhập</a>
-                    </p>
+                <div class="mb-3">
+                    <label asp-for="Email" class="form-label small fw-semibold">Email</label>
+                    <input asp-for="Email" class="form-control" placeholder="sv@utc.edu.vn" />
+                    <span asp-validation-for="Email" class="text-danger small"></span>
                 </div>
+
+                <div class="mb-3">
+                    <label asp-for="Password" class="form-label small fw-semibold">Mật khẩu</label>
+                    <input asp-for="Password" class="form-control" placeholder="Tối thiểu 6 ký tự" />
+                    <span asp-validation-for="Password" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="ConfirmPassword" class="form-label small fw-semibold">Nhập lại mật khẩu</label>
+                    <input asp-for="ConfirmPassword" class="form-control" placeholder="Nhập lại mật khẩu" />
+                    <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold mt-2">
+                    Đăng ký
+                </button>
+            </form>
+
+            <div class="mt-3 pt-3 border-top text-center small text-muted">
+                Đã có tài khoản? <a asp-action="Login" class="text-decoration-none fw-semibold">Đăng nhập</a>
             </div>
         </div>
     </div>

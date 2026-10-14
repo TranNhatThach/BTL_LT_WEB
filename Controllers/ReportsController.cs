@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BTL_LTWEB_QLChiTieu.Data;
-using BTL_LTWEB_QLChiTieu.Services;
+using BTL_LTWEB_QLChiTieu.Helpers;
 
 namespace BTL_LTWEB_QLChiTieu.Controllers;
 
@@ -11,9 +11,9 @@ namespace BTL_LTWEB_QLChiTieu.Controllers;
 public class ReportsController : Controller
 {
     private readonly ApplicationDbContext _context;
-    private readonly IExportService _exportService;
+    private readonly ExportService _exportService;
 
-    public ReportsController(ApplicationDbContext context, IExportService exportService)
+    public ReportsController(ApplicationDbContext context, ExportService exportService)
     {
         _context = context;
         _exportService = exportService;
@@ -31,11 +31,15 @@ public class ReportsController : Controller
         int selectedMonth = month ?? DateTime.Today.Month;
         int selectedYear = year ?? DateTime.Today.Year;
 
+        var start = new DateTime(selectedYear, selectedMonth, 1);
+        var end = start.AddMonths(1);
+
         var transactions = await _context.Transactions
+            .AsNoTracking()
             .Include(t => t.Category)
             .Where(t => t.UserId == userId && 
-                        t.TransactionDate.Month == selectedMonth && 
-                        t.TransactionDate.Year == selectedYear)
+                        t.TransactionDate >= start && 
+                        t.TransactionDate < end)
             .OrderByDescending(t => t.TransactionDate)
             .ToListAsync();
 

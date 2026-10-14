@@ -50,4 +50,5 @@ public class AppUser
     public virtual ICollection<Budget> Budgets { get; set; } = new List<Budget>();
     public virtual ICollection<SavingsGoal> SavingsGoals { get; set; } = new List<SavingsGoal>();
     public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+    public virtual ICollection<FinancialNote> FinancialNotes { get; set; } = new List<FinancialNote>();
 }

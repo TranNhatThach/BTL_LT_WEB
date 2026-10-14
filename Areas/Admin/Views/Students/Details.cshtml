@@ -36,8 +36,9 @@
 <div class="row g-4 mb-4">
     <div class="col-12 col-md-4">
         <div class="card border-0 shadow-sm rounded-4 bg-white p-4 text-center">
-            <img src="https://ui-avatars.com/api/?name=@Uri.EscapeDataString(Model.FullName)&background=0D6EFD&color=fff&size=128" 
-                 alt="" class="rounded-circle mx-auto mb-3 border shadow-sm" style="width: 96px; height: 96px;" />
+            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fw-bold mx-auto mb-3 shadow-sm" style="width: 80px; height: 80px; font-size: 2rem;">
+                @(string.IsNullOrEmpty(Model.FullName) ? "S" : Model.FullName.Substring(0, 1).ToUpper())
+            </div>
             <h5 class="fw-bold text-dark mb-1">@Model.FullName</h5>
             <div class="text-muted small mb-3">@Model.SchoolName - @Model.ClassName</div>
 

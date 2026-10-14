@@ -3,24 +3,19 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BTL_LTWEB_QLChiTieu.Data;
+using BTL_LTWEB_QLChiTieu.Helpers;
 using BTL_LTWEB_QLChiTieu.Models;
-using BTL_LTWEB_QLChiTieu.Services;
 
 namespace BTL_LTWEB_QLChiTieu.Controllers;
 
 [Authorize]
 public class TransactionsController : Controller
 {
-    private readonly ITransactionService _transactionService;
     private readonly ApplicationDbContext _context;
     private readonly IWebHostEnvironment _env;
 
-    public TransactionsController(
-        ITransactionService transactionService,
-        ApplicationDbContext context,
-        IWebHostEnvironment env)
+    public TransactionsController(ApplicationDbContext context, IWebHostEnvironment env)
     {
-        _transactionService = transactionService;
         _context = context;
         _env = env;
     }
@@ -36,13 +31,60 @@ public class TransactionsController : Controller
     {
         int userId = GetCurrentUserId();
 
-        var (transactions, totalCount) = await _transactionService.GetTransactionsAsync(
-            userId, month, year, type, categoryId, keyword, page, pageSize);
+        var query = _context.Transactions
+            .AsNoTracking()
+            .Include(t => t.Category)
+            .Where(t => t.UserId == userId)
+            .AsQueryable();
 
-        var (totalIncome, totalExpense, balance) = await _transactionService.GetBalanceAsync(userId);
+        if (month.HasValue && month.Value > 0)
+        {
+            query = query.Where(t => t.TransactionDate.Month == month.Value);
+        }
 
-        // Danh sách danh mục khả dụng của user
+        if (year.HasValue && year.Value > 0)
+        {
+            query = query.Where(t => t.TransactionDate.Year == year.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(type) && type != "All")
+        {
+            query = query.Where(t => t.Type == type);
+        }
+
+        if (categoryId.HasValue && categoryId.Value > 0)
+        {
+            query = query.Where(t => t.CategoryId == categoryId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            var kw = keyword.Trim().ToLower();
+            query = query.Where(t => (t.Note != null && t.Note.ToLower().Contains(kw)) ||
+                                     t.Category!.Name.ToLower().Contains(kw));
+        }
+
+        var totalCount = await query.CountAsync();
+        var transactions = await query
+            .OrderByDescending(t => t.TransactionDate)
+            .ThenByDescending(t => t.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var totals = await _context.Transactions
+            .AsNoTracking()
+            .Where(t => t.UserId == userId)
+            .GroupBy(t => t.Type)
+            .Select(g => new { Type = g.Key, Total = g.Sum(x => x.Amount) })
+            .ToListAsync();
+
+        decimal totalIncome = totals.FirstOrDefault(t => t.Type == "Income")?.Total ?? 0;
+        decimal totalExpense = totals.FirstOrDefault(t => t.Type == "Expense")?.Total ?? 0;
+        decimal balance = totalIncome - totalExpense;
+
         var categories = await _context.Categories
+            .AsNoTracking()
             .Where(c => (c.IsDefault || c.UserId == userId) && c.IsActive)
             .OrderBy(c => c.Type)
             .ThenBy(c => c.Name)
@@ -61,7 +103,6 @@ public class TransactionsController : Controller
         ViewBag.Balance = balance;
         ViewBag.Categories = categories;
 
-        // Nếu là yêu cầu AJAX (chuyển trang hoặc lọc), trả về PartialView
         if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
         {
             return PartialView("_TransactionListPartial", transactions);
@@ -75,18 +116,72 @@ public class TransactionsController : Controller
     public async Task<IActionResult> Create(Transaction transaction, IFormFile? invoiceFile)
     {
         int userId = GetCurrentUserId();
-        transaction.UserId = userId; // Đảm bảo luôn lấy UserId từ phiên đăng nhập
+        transaction.UserId = userId;
 
-        var result = await _transactionService.CreateTransactionAsync(transaction, invoiceFile, _env.WebRootPath);
-        if (!result.Success)
+        if (transaction.Amount <= 0)
         {
-            TempData["ErrorMessage"] = result.Message;
-        }
-        else
-        {
-            TempData["SuccessMessage"] = result.Message;
+            TempData["ErrorMessage"] = "Số tiền giao dịch phải lớn hơn 0.";
+            return RedirectToAction(nameof(Index));
         }
 
+        if (transaction.TransactionDate.Date > DateTime.Today)
+        {
+            TempData["ErrorMessage"] = "Ngày giao dịch không được sau ngày hiện tại.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var category = await _context.Categories.FindAsync(transaction.CategoryId);
+        if (category == null || (!category.IsDefault && category.UserId != userId) || !category.IsActive)
+        {
+            TempData["ErrorMessage"] = "Danh mục không hợp lệ hoặc đã ngừng hoạt động.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        if (category.Type != transaction.Type)
+        {
+            TempData["ErrorMessage"] = "Loại giao dịch không khớp với loại danh mục đã chọn.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        if (invoiceFile != null && invoiceFile.Length > 0)
+        {
+            var allowedExts = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+            var ext = Path.GetExtension(invoiceFile.FileName).ToLower();
+
+            if (!allowedExts.Contains(ext) || invoiceFile.Length > 5 * 1024 * 1024)
+            {
+                TempData["ErrorMessage"] = "File hóa đơn không hợp lệ (phải là ảnh .jpg, .png và <= 5MB).";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var invoicesDir = Path.Combine(_env.WebRootPath, "uploads", "invoices");
+            if (!Directory.Exists(invoicesDir))
+            {
+                Directory.CreateDirectory(invoicesDir);
+            }
+
+            var uniqueName = $"inv_{userId}_{Guid.NewGuid():N}{ext}";
+            var filePath = Path.Combine(invoicesDir, uniqueName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await invoiceFile.CopyToAsync(stream);
+            }
+
+            transaction.InvoiceImagePath = $"/uploads/invoices/{uniqueName}";
+        }
+
+        transaction.CreatedAt = DateTime.UtcNow;
+        _context.Transactions.Add(transaction);
+        await _context.SaveChangesAsync();
+
+        if (transaction.Type == "Expense")
+        {
+            await BudgetAlertHelper.CheckAndTriggerBudgetAlertAsync(
+                _context, userId, transaction.CategoryId, transaction.TransactionDate);
+        }
+
+        TempData["SuccessMessage"] = "Thêm giao dịch mới thành công!";
         return RedirectToAction(nameof(Index));
     }
 
@@ -96,16 +191,75 @@ public class TransactionsController : Controller
     {
         int userId = GetCurrentUserId();
 
-        var result = await _transactionService.UpdateTransactionAsync(transaction, invoiceFile, _env.WebRootPath, userId);
-        if (!result.Success)
+        var existing = await _context.Transactions
+            .FirstOrDefaultAsync(t => t.TransactionId == transaction.TransactionId && t.UserId == userId);
+
+        if (existing == null)
         {
-            TempData["ErrorMessage"] = result.Message;
-        }
-        else
-        {
-            TempData["SuccessMessage"] = result.Message;
+            TempData["ErrorMessage"] = "Không tìm thấy giao dịch hoặc bạn không có quyền sửa.";
+            return RedirectToAction(nameof(Index));
         }
 
+        if (transaction.Amount <= 0 || transaction.TransactionDate.Date > DateTime.Today)
+        {
+            TempData["ErrorMessage"] = "Dữ liệu giao dịch không hợp lệ.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var category = await _context.Categories.FindAsync(transaction.CategoryId);
+        if (category == null || (!category.IsDefault && category.UserId != userId) || category.Type != transaction.Type)
+        {
+            TempData["ErrorMessage"] = "Danh mục không hợp lệ hoặc không khớp với loại giao dịch.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        int oldCategoryId = existing.CategoryId;
+        DateTime oldDate = existing.TransactionDate;
+
+        existing.CategoryId = transaction.CategoryId;
+        existing.Type = transaction.Type;
+        existing.Amount = transaction.Amount;
+        existing.TransactionDate = transaction.TransactionDate;
+        existing.Note = transaction.Note;
+        existing.UpdatedAt = DateTime.UtcNow;
+
+        if (invoiceFile != null && invoiceFile.Length > 0)
+        {
+            var allowedExts = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+            var ext = Path.GetExtension(invoiceFile.FileName).ToLower();
+
+            if (allowedExts.Contains(ext) && invoiceFile.Length <= 5 * 1024 * 1024)
+            {
+                var invoicesDir = Path.Combine(_env.WebRootPath, "uploads", "invoices");
+                if (!Directory.Exists(invoicesDir))
+                {
+                    Directory.CreateDirectory(invoicesDir);
+                }
+
+                var uniqueName = $"inv_{userId}_{Guid.NewGuid():N}{ext}";
+                var filePath = Path.Combine(invoicesDir, uniqueName);
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await invoiceFile.CopyToAsync(stream);
+                }
+
+                existing.InvoiceImagePath = $"/uploads/invoices/{uniqueName}";
+            }
+        }
+
+        await _context.SaveChangesAsync();
+
+        if (existing.Type == "Expense")
+        {
+            await BudgetAlertHelper.CheckAndTriggerBudgetAlertAsync(_context, userId, existing.CategoryId, existing.TransactionDate);
+            if (oldCategoryId != existing.CategoryId || oldDate.Month != existing.TransactionDate.Month)
+            {
+                await BudgetAlertHelper.CheckAndTriggerBudgetAlertAsync(_context, userId, oldCategoryId, oldDate);
+            }
+        }
+
+        TempData["SuccessMessage"] = "Cập nhật giao dịch thành công!";
         return RedirectToAction(nameof(Index));
     }
 
@@ -115,16 +269,28 @@ public class TransactionsController : Controller
     {
         int userId = GetCurrentUserId();
 
-        var result = await _transactionService.DeleteTransactionAsync(id, userId);
-        if (!result.Success)
+        var existing = await _context.Transactions
+            .FirstOrDefaultAsync(t => t.TransactionId == id && t.UserId == userId);
+
+        if (existing == null)
         {
-            TempData["ErrorMessage"] = result.Message;
-        }
-        else
-        {
-            TempData["SuccessMessage"] = result.Message;
+            TempData["ErrorMessage"] = "Không tìm thấy giao dịch để xóa.";
+            return RedirectToAction(nameof(Index));
         }
 
+        int catId = existing.CategoryId;
+        string type = existing.Type;
+        DateTime trxDate = existing.TransactionDate;
+
+        _context.Transactions.Remove(existing);
+        await _context.SaveChangesAsync();
+
+        if (type == "Expense")
+        {
+            await BudgetAlertHelper.CheckAndTriggerBudgetAlertAsync(_context, userId, catId, trxDate);
+        }
+
+        TempData["SuccessMessage"] = "Xóa giao dịch thành công!";
         return RedirectToAction(nameof(Index));
     }
 
@@ -132,7 +298,10 @@ public class TransactionsController : Controller
     public async Task<IActionResult> GetById(int id)
     {
         int userId = GetCurrentUserId();
-        var trx = await _transactionService.GetTransactionByIdAsync(id, userId);
+        var trx = await _context.Transactions
+            .Include(t => t.Category)
+            .FirstOrDefaultAsync(t => t.TransactionId == id && t.UserId == userId);
+
         if (trx == null)
         {
             return NotFound();

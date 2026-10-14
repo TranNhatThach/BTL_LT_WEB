@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Quản Lý Chi Tiêu Sinh Viên</title>
     
-    <!-- Google Fonts: Inter -->
+    <!-- Fonts & Icons: Tối ưu tải trang phi chặn (Non-blocking) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     
     <!-- Bootstrap 5 CSS & Bootstrap Icons -->
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
@@ -88,6 +89,11 @@
                                     <i class="bi bi-bar-chart-line me-1"></i>Báo cáo
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="" asp-controller="Notes" asp-action="Index">
+                                    <i class="bi bi-journal-bookmark-fill me-1"></i>Ghi chú
+                                </a>
+                            </li>
                         </ul>
 
                         <div class="d-flex align-items-center gap-2">
@@ -118,40 +124,12 @@
                                 </ul>
                             </div>
 
-                            <!-- Menu đổi ngôn ngữ (VI / EN) -->
-                            <div class="dropdown">
-                                <button class="btn btn-light btn-sm rounded-pill px-2 py-1 border text-secondary" type="button" id="langDropdown" data-bs-toggle="dropdown" aria-expanded="false" title="Đổi ngôn ngữ">
-                                    <i class="bi bi-translate me-1"></i><span class="small fw-semibold">VI/EN</span>
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 p-1 mt-2" aria-labelledby="langDropdown">
-                                    <li>
-                                        <form asp-controller="Language" asp-action="SetLanguage" method="post">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="culture" value="vi" />
-                                            <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                            <button type="submit" class="dropdown-item rounded-2 small d-flex align-items-center">
-                                                <span class="me-2">🇻🇳</span> Tiếng Việt
-                                            </button>
-                                        </form>
-                                    </li>
-                                    <li>
-                                        <form asp-controller="Language" asp-action="SetLanguage" method="post">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="culture" value="en" />
-                                            <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                            <button type="submit" class="dropdown-item rounded-2 small d-flex align-items-center">
-                                                <span class="me-2">🇬🇧</span> English
-                                            </button>
-                                        </form>
-                                    </li>
-                                </ul>
-                            </div>
-
                             <!-- Avatar & Dropdown Người dùng -->
                             <div class="dropdown">
                                 <button class="btn btn-light rounded-pill d-flex align-items-center gap-2 py-1 px-2 border" type="button" id="userMenu" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <img src="https://ui-avatars.com/api/?name=@Uri.EscapeDataString(User.Identity?.Name ?? "User")&background=0D6EFD&color=fff" 
-                                         alt="Avatar" class="rounded-circle" style="width: 32px; height: 32px;" />
+                                    <span class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center fw-bold shadow-sm" style="width: 32px; height: 32px; font-size: 0.85rem;">
+                                        @(string.IsNullOrEmpty(User.Identity?.Name) ? "U" : User.Identity.Name.Substring(0, 1).ToUpper())
+                                    </span>
                                     <span class="small fw-semibold text-dark d-none d-md-inline">@User.Identity?.Name</span>
                                     <i class="bi bi-chevron-down small text-muted"></i>
                                 </button>

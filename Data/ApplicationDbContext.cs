@@ -16,19 +16,20 @@ public class ApplicationDbContext : DbContext
     public DbSet<Budget> Budgets { get; set; } = null!;
     public DbSet<SavingsGoal> SavingsGoals { get; set; } = null!;
     public DbSet<Notification> Notifications { get; set; } = null!;
+    public DbSet<FinancialNote> FinancialNotes { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // 1. Cấu hình bảng Users
+        // 1. Users
         modelBuilder.Entity<AppUser>(entity =>
         {
             entity.HasIndex(u => u.Email).IsUnique();
             entity.HasIndex(u => u.StudentCode).IsUnique().HasFilter("[StudentCode] IS NOT NULL");
         });
 
-        // 2. Cấu hình bảng Categories
+        // 2. Categories
         modelBuilder.Entity<Category>(entity =>
         {
             entity.HasOne(c => c.User)
@@ -37,7 +38,7 @@ public class ApplicationDbContext : DbContext
                   .OnDelete(DeleteBehavior.SetNull);
         });
 
-        // 3. Cấu hình bảng Transactions
+        // 3. Transactions
         modelBuilder.Entity<Transaction>(entity =>
         {
             entity.HasOne(t => t.User)
@@ -54,7 +55,7 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(t => t.CategoryId);
         });
 
-        // 4. Cấu hình bảng Budgets
+        // 4. Budgets
         modelBuilder.Entity<Budget>(entity =>
         {
             entity.HasOne(b => b.User)
@@ -67,11 +68,10 @@ public class ApplicationDbContext : DbContext
                   .HasForeignKey(b => b.CategoryId)
                   .OnDelete(DeleteBehavior.Restrict);
 
-            // Mỗi sinh viên chỉ có 1 ngân sách cho 1 danh mục trong 1 tháng
             entity.HasIndex(b => new { b.UserId, b.CategoryId, b.Month, b.Year }).IsUnique();
         });
 
-        // 5. Cấu hình bảng SavingsGoals
+        // 5. SavingsGoals
         modelBuilder.Entity<SavingsGoal>(entity =>
         {
             entity.HasOne(s => s.User)
@@ -80,7 +80,7 @@ public class ApplicationDbContext : DbContext
                   .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // 6. Cấu hình bảng Notifications
+        // 6. Notifications
         modelBuilder.Entity<Notification>(entity =>
         {
             entity.HasOne(n => n.User)
@@ -93,17 +93,25 @@ public class ApplicationDbContext : DbContext
                   .HasForeignKey(n => n.BudgetId)
                   .OnDelete(DeleteBehavior.Cascade);
 
-            // Tránh lặp cảnh báo cùng mức cho 1 ngân sách
             entity.HasIndex(n => new { n.BudgetId, n.AlertLevel }).IsUnique();
         });
 
-        // 7. Seed Data khởi tạo danh mục mặc định & tài khoản
+        // 7. FinancialNotes
+        modelBuilder.Entity<FinancialNote>(entity =>
+        {
+            entity.HasOne(n => n.User)
+                  .WithMany(u => u.FinancialNotes)
+                  .HasForeignKey(n => n.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(n => new { n.UserId, n.CreatedAt });
+        });
+
         SeedDefaultData(modelBuilder);
     }
 
     private static void SeedDefaultData(ModelBuilder modelBuilder)
     {
-        // Tài khoản mẫu: Admin (Admin@123) & Sinh viên (Student@123)
         var adminCreated = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
         modelBuilder.Entity<AppUser>().HasData(
             new AppUser
@@ -131,15 +139,11 @@ public class ApplicationDbContext : DbContext
             }
         );
 
-        // 11 Danh mục mặc định hệ thống
         modelBuilder.Entity<Category>().HasData(
-            // Thu nhập (Income)
             new Category { CategoryId = 1, Name = "Tiền lương, làm thêm", Type = "Income", Icon = "bi-cash-stack", Color = "#198754", IsDefault = true, IsActive = true, CreatedAt = adminCreated },
             new Category { CategoryId = 2, Name = "Chu cấp từ gia đình", Type = "Income", Icon = "bi-house-heart", Color = "#0d6efd", IsDefault = true, IsActive = true, CreatedAt = adminCreated },
             new Category { CategoryId = 3, Name = "Học bổng", Type = "Income", Icon = "bi-mortarboard-fill", Color = "#ffc107", IsDefault = true, IsActive = true, CreatedAt = adminCreated },
             new Category { CategoryId = 4, Name = "Thu nhập khác", Type = "Income", Icon = "bi-wallet2", Color = "#20c997", IsDefault = true, IsActive = true, CreatedAt = adminCreated },
-
-            // Chi tiêu (Expense)
             new Category { CategoryId = 5, Name = "Ăn uống", Type = "Expense", Icon = "bi-cup-hot-fill", Color = "#fd7e14", IsDefault = true, IsActive = true, CreatedAt = adminCreated },
             new Category { CategoryId = 6, Name = "Nhà trọ", Type = "Expense", Icon = "bi-building", Color = "#6610f2", IsDefault = true, IsActive = true, CreatedAt = adminCreated },
             new Category { CategoryId = 7, Name = "Đi lại", Type = "Expense", Icon = "bi-bus-front-fill", Color = "#0dcaf0", IsDefault = true, IsActive = true, CreatedAt = adminCreated },

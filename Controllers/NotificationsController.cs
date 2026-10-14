@@ -28,6 +28,7 @@ public class NotificationsController : Controller
         int userId = GetCurrentUserId();
 
         var notifs = await _context.Notifications
+            .AsNoTracking()
             .Where(n => n.UserId == userId && !n.IsRead)
             .OrderByDescending(n => n.CreatedAt)
             .Take(10)

@@ -4,9 +4,8 @@ namespace BTL_LTWEB_QLChiTieu.ViewModels;
 
 public class LoginViewModel
 {
-    [Required(ErrorMessage = "Vui lòng nhập email")]
-    [EmailAddress(ErrorMessage = "Email không đúng định dạng")]
-    [Display(Name = "Email")]
+    [Required(ErrorMessage = "Vui lòng nhập Email, Mã sinh viên hoặc Tên đăng nhập")]
+    [Display(Name = "Email hoặc Mã sinh viên")]
     public string Email { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Vui lòng nhập mật khẩu")]

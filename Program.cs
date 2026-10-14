@@ -1,18 +1,13 @@
-using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Localization;
-using Microsoft.Extensions.Options;
 using BTL_LTWEB_QLChiTieu.Data;
-using BTL_LTWEB_QLChiTieu.Services;
+using BTL_LTWEB_QLChiTieu.Helpers;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Cấu hình DbContext kết nối SQL Server
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// 2. Cấu hình Cookie Authentication & Phân quyền
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
@@ -23,7 +18,6 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.SlidingExpiration = true;
     });
 
-// 3. Cấu hình Session & HttpContextAccessor
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
@@ -33,34 +27,14 @@ builder.Services.AddSession(options =>
 });
 builder.Services.AddHttpContextAccessor();
 
-// 4. Cấu hình Đa ngôn ngữ (Localization: vi, en)
-builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+builder.Services.AddScoped<ExportService>();
 
-builder.Services.Configure<RequestLocalizationOptions>(options =>
-{
-    var supportedCultures = new[] { new CultureInfo("vi"), new CultureInfo("en") };
-    options.DefaultRequestCulture = new RequestCulture("vi");
-    options.SupportedCultures = supportedCultures;
-    options.SupportedUICultures = supportedCultures;
-});
-
-// Đăng ký các Business Services
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IBudgetService, BudgetService>();
-builder.Services.AddScoped<ITransactionService, TransactionService>();
-builder.Services.AddScoped<IExportService, ExportService>();
-
-// 5. Cấu hình MVC và API
-builder.Services.AddControllersWithViews()
-    .AddViewLocalization()
-    .AddDataAnnotationsLocalization();
-
+builder.Services.AddControllersWithViews();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// 6. Pipeline xử lý HTTP request
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
@@ -78,24 +52,47 @@ else
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
-// Đa ngôn ngữ Middleware
-var locOptions = app.Services.GetRequiredService<IOptions<RequestLocalizationOptions>>().Value;
-app.UseRequestLocalization(locOptions);
-
 app.UseRouting();
 
 app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Định tuyến cho Areas (Admin)
 app.MapControllerRoute(
     name: "areas",
     pattern: "{area:exists}/{controller=Home}/{action=Index}/{id?}");
 
-// Định tuyến mặc định (Student / Public)
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
+
+// Tự động kiểm tra và khởi tạo bảng FinancialNotes nếu chưa có trong CSDL
+try
+{
+    using var scope = app.Services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    dbContext.Database.ExecuteSqlRaw(@"
+        IF OBJECT_ID('FinancialNotes', 'U') IS NULL
+        BEGIN
+            CREATE TABLE FinancialNotes (
+                NoteId INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                UserId INT NOT NULL,
+                Title NVARCHAR(200) NOT NULL,
+                Content NVARCHAR(MAX) NULL,
+                EstimatedAmount DECIMAL(18,2) NULL,
+                NoteType NVARCHAR(50) NOT NULL DEFAULT 'General',
+                Priority NVARCHAR(20) NOT NULL DEFAULT 'Normal',
+                IsCompleted BIT NOT NULL DEFAULT 0,
+                DueDate DATE NULL,
+                CreatedAt DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+                UpdatedAt DATETIME2 NULL,
+                CONSTRAINT FK_FinancialNotes_Users FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE
+            );
+        END
+    ");
+}
+catch
+{
+}
 
 app.Run();

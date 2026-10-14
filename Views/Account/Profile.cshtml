@@ -10,10 +10,9 @@
             <div class="card-body p-4 p-md-5">
                 <div class="d-flex align-items-center mb-4 pb-3 border-bottom">
                     <div class="position-relative me-3">
-                        <img src="@(string.IsNullOrEmpty(Model.AvatarPath) ? "/images/default-avatar.png" : Model.AvatarPath)" 
+                        <img src="@(string.IsNullOrEmpty(Model.AvatarPath) ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='32' fill='%23e0e7ff'/%3E%3Cpath d='M32 14a10 10 0 100 20 10 10 0 000-20zm0 24c-11 0-20 7-20 16h40c0-9-9-16-20-16z' fill='%230d6efd'/%3E%3C/svg%3E" : Model.AvatarPath)" 
                              alt="Avatar" class="rounded-circle border shadow-sm object-fit-cover" 
-                             style="width: 72px; height: 72px;" id="avatarPreview" 
-                             onerror="this.src='https://ui-avatars.com/api/?name=@Uri.EscapeDataString(Model.FullName)&background=0D6EFD&color=fff';" />
+                             style="width: 72px; height: 72px;" id="avatarPreview" />
                     </div>
                     <div>
                         <h4 class="fw-bold mb-1 text-dark">@Model.FullName</h4>
@@ -61,9 +60,9 @@
                         </div>
 
                         <div class="col-12 col-md-6">
-                            <label asp-for="StudentCode" class="form-label fw-semibold text-secondary small"></label>
-                            <input asp-for="StudentCode" class="form-control bg-light" readonly />
-                            <small class="text-muted">Mã SV cố định</small>
+                            <label asp-for="StudentCode" class="form-label fw-semibold text-secondary small">Mã sinh viên</label>
+                            <input asp-for="StudentCode" class="form-control" placeholder="Mã SV (tùy chọn)" />
+                            <span asp-validation-for="StudentCode" class="text-danger small"></span>
                         </div>
 
                         <div class="col-12 col-md-6">

@@ -92,8 +92,9 @@
                                 <td class="text-muted small">@(index++)</td>
                                 <td class="fw-semibold">
                                     <div class="d-flex align-items-center">
-                                        <img src="https://ui-avatars.com/api/?name=@Uri.EscapeDataString(s.FullName)&background=random" 
-                                             alt="" class="rounded-circle me-2" style="width: 32px; height: 32px;" />
+                                        <span class="rounded-circle bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center justify-content-center fw-bold me-2" style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                            @(string.IsNullOrEmpty(s.FullName) ? "S" : s.FullName.Substring(0, 1).ToUpper())
+                                        </span>
                                         <span>@s.FullName</span>
                                     </div>
                                 </td>

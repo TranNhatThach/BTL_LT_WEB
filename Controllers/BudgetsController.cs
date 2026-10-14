@@ -3,20 +3,18 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BTL_LTWEB_QLChiTieu.Data;
+using BTL_LTWEB_QLChiTieu.Helpers;
 using BTL_LTWEB_QLChiTieu.Models;
-using BTL_LTWEB_QLChiTieu.Services;
 
 namespace BTL_LTWEB_QLChiTieu.Controllers;
 
 [Authorize]
 public class BudgetsController : Controller
 {
-    private readonly IBudgetService _budgetService;
     private readonly ApplicationDbContext _context;
 
-    public BudgetsController(IBudgetService budgetService, ApplicationDbContext context)
+    public BudgetsController(ApplicationDbContext context)
     {
-        _budgetService = budgetService;
         _context = context;
     }
 
@@ -32,24 +30,23 @@ public class BudgetsController : Controller
         int selectedMonth = month ?? DateTime.Today.Month;
         int selectedYear = year ?? DateTime.Today.Year;
 
-        var budgetsWithProgress = await _budgetService.GetBudgetsWithProgressAsync(userId, selectedMonth, selectedYear);
+        var budgetsWithProgress = await BudgetAlertHelper.GetBudgetsWithProgressAsync(
+            _context, userId, selectedMonth, selectedYear);
 
-        // Lấy danh sách danh mục chi tiêu khả dụng để người dùng chọn thiết lập
         var expenseCategories = await _context.Categories
+            .AsNoTracking()
             .Where(c => (c.IsDefault || c.UserId == userId) && c.Type == "Expense" && c.IsActive)
             .OrderBy(c => c.Name)
             .ToListAsync();
 
-        ViewBag.SelectedMonth = selectedMonth;
-        ViewBag.SelectedYear = selectedYear;
-        ViewBag.ExpenseCategories = expenseCategories;
-
-        // Tính tổng quan ngân sách tháng
         decimal totalLimit = budgetsWithProgress.Sum(b => b.Budget.LimitAmount);
         decimal totalSpent = budgetsWithProgress.Sum(b => b.SpentAmount);
         decimal totalRemaining = totalLimit - totalSpent;
         double overallPercentage = totalLimit > 0 ? (double)(totalSpent / totalLimit) * 100.0 : 0;
 
+        ViewBag.SelectedMonth = selectedMonth;
+        ViewBag.SelectedYear = selectedYear;
+        ViewBag.ExpenseCategories = expenseCategories;
         ViewBag.TotalLimit = totalLimit;
         ViewBag.TotalSpent = totalSpent;
         ViewBag.TotalRemaining = totalRemaining;
@@ -64,16 +61,39 @@ public class BudgetsController : Controller
     {
         int userId = GetCurrentUserId();
 
-        var result = await _budgetService.CreateBudgetAsync(budget, userId);
-        if (!result.Success)
+        var cat = await _context.Categories.FindAsync(budget.CategoryId);
+        if (cat == null || cat.Type != "Expense")
         {
-            TempData["ErrorMessage"] = result.Message;
-        }
-        else
-        {
-            TempData["SuccessMessage"] = result.Message;
+            TempData["ErrorMessage"] = "Chỉ có thể thiết lập ngân sách cho các danh mục Chi tiêu (Expense).";
+            return RedirectToAction(nameof(Index), new { month = budget.Month, year = budget.Year });
         }
 
+        if (budget.LimitAmount <= 0)
+        {
+            TempData["ErrorMessage"] = "Hạn mức ngân sách phải lớn hơn 0.";
+            return RedirectToAction(nameof(Index), new { month = budget.Month, year = budget.Year });
+        }
+
+        bool exists = await _context.Budgets.AnyAsync(b => b.UserId == userId && 
+                                                           b.CategoryId == budget.CategoryId && 
+                                                           b.Month == budget.Month && 
+                                                           b.Year == budget.Year);
+        if (exists)
+        {
+            TempData["ErrorMessage"] = $"Đã tồn tại ngân sách cho danh mục này trong tháng {budget.Month}/{budget.Year}.";
+            return RedirectToAction(nameof(Index), new { month = budget.Month, year = budget.Year });
+        }
+
+        budget.UserId = userId;
+        budget.CreatedAt = DateTime.UtcNow;
+
+        _context.Budgets.Add(budget);
+        await _context.SaveChangesAsync();
+
+        await BudgetAlertHelper.CheckAndTriggerBudgetAlertAsync(
+            _context, userId, budget.CategoryId, new DateTime(budget.Year, budget.Month, 1));
+
+        TempData["SuccessMessage"] = "Thiết lập ngân sách mới thành công!";
         return RedirectToAction(nameof(Index), new { month = budget.Month, year = budget.Year });
     }
 
@@ -83,16 +103,30 @@ public class BudgetsController : Controller
     {
         int userId = GetCurrentUserId();
 
-        var result = await _budgetService.UpdateBudgetAsync(budget, userId);
-        if (!result.Success)
+        var existing = await _context.Budgets
+            .FirstOrDefaultAsync(b => b.BudgetId == budget.BudgetId && b.UserId == userId);
+
+        if (existing == null)
         {
-            TempData["ErrorMessage"] = result.Message;
-        }
-        else
-        {
-            TempData["SuccessMessage"] = result.Message;
+            TempData["ErrorMessage"] = "Không tìm thấy thông tin ngân sách cần sửa.";
+            return RedirectToAction(nameof(Index), new { month = budget.Month, year = budget.Year });
         }
 
+        if (budget.LimitAmount <= 0)
+        {
+            TempData["ErrorMessage"] = "Hạn mức ngân sách phải lớn hơn 0.";
+            return RedirectToAction(nameof(Index), new { month = budget.Month, year = budget.Year });
+        }
+
+        existing.LimitAmount = budget.LimitAmount;
+        existing.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        await BudgetAlertHelper.CheckAndTriggerBudgetAlertAsync(
+            _context, userId, existing.CategoryId, new DateTime(existing.Year, existing.Month, 1));
+
+        TempData["SuccessMessage"] = "Cập nhật hạn mức ngân sách thành công!";
         return RedirectToAction(nameof(Index), new { month = budget.Month, year = budget.Year });
     }
 
@@ -102,16 +136,19 @@ public class BudgetsController : Controller
     {
         int userId = GetCurrentUserId();
 
-        var result = await _budgetService.DeleteBudgetAsync(id, userId);
-        if (!result.Success)
+        var budget = await _context.Budgets
+            .FirstOrDefaultAsync(b => b.BudgetId == id && b.UserId == userId);
+
+        if (budget == null)
         {
-            TempData["ErrorMessage"] = result.Message;
-        }
-        else
-        {
-            TempData["SuccessMessage"] = result.Message;
+            TempData["ErrorMessage"] = "Không tìm thấy ngân sách để xóa.";
+            return RedirectToAction(nameof(Index), new { month, year });
         }
 
+        _context.Budgets.Remove(budget);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Xóa ngân sách thành công!";
         return RedirectToAction(nameof(Index), new { month, year });
     }
 }

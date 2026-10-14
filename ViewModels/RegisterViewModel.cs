@@ -21,20 +21,11 @@ public class RegisterViewModel
     public string Password { get; set; } = string.Empty;
 
     [DataType(DataType.Password)]
-    [Display(Name = "Xác nhận mật khẩu")]
+    [Display(Name = "Nhập lại mật khẩu")]
     [Compare("Password", ErrorMessage = "Mật khẩu xác nhận không trùng khớp")]
     public string ConfirmPassword { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Vui lòng nhập mã sinh viên")]
-    [Display(Name = "Mã sinh viên")]
-    [StringLength(50)]
-    public string StudentCode { get; set; } = string.Empty;
-
-    [Display(Name = "Trường học")]
-    [StringLength(200)]
+    public string? StudentCode { get; set; }
     public string? SchoolName { get; set; }
-
-    [Display(Name = "Lớp")]
-    [StringLength(100)]
     public string? ClassName { get; set; }
 }

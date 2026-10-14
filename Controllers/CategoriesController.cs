@@ -27,8 +27,9 @@ public class CategoriesController : Controller
     {
         int userId = GetCurrentUserId();
 
-        // Lấy danh mục hệ thống và danh mục cá nhân của sinh viên
+        // Lấy danh mục hệ thống và danh mục cá nhân của sinh viên (No-Tracking)
         var categories = await _context.Categories
+            .AsNoTracking()
             .Where(c => c.IsDefault || c.UserId == userId)
             .OrderBy(c => c.Type)
             .ThenByDescending(c => c.IsDefault)

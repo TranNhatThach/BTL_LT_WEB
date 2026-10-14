@@ -3,21 +3,21 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BTL_LTWEB_QLChiTieu.Data;
-using BTL_LTWEB_QLChiTieu.Services;
 
 namespace BTL_LTWEB_QLChiTieu.Controllers.Api;
 
+/// <summary>
+/// RESTful Web API cung cấp dữ liệu giao dịch, số dư và danh mục dưới định dạng JSON cho ứng dụng ngoài hoặc kiểm thử
+/// </summary>
 [ApiController]
 [Route("api")]
 [Authorize]
 public class TransactionsApiController : ControllerBase
 {
-    private readonly ITransactionService _transactionService;
     private readonly ApplicationDbContext _context;
 
-    public TransactionsApiController(ITransactionService transactionService, ApplicationDbContext context)
+    public TransactionsApiController(ApplicationDbContext context)
     {
-        _transactionService = transactionService;
         _context = context;
     }
 
@@ -47,8 +47,45 @@ public class TransactionsApiController : ControllerBase
         if (page < 1) page = 1;
         if (pageSize < 1 || pageSize > 100) pageSize = 10;
 
-        var (transactions, totalCount) = await _transactionService.GetTransactionsAsync(
-            userId, month, year, type, categoryId, keyword, page, pageSize);
+        var query = _context.Transactions
+            .Include(t => t.Category)
+            .Where(t => t.UserId == userId)
+            .AsQueryable();
+
+        if (month.HasValue && month.Value > 0)
+        {
+            query = query.Where(t => t.TransactionDate.Month == month.Value);
+        }
+
+        if (year.HasValue && year.Value > 0)
+        {
+            query = query.Where(t => t.TransactionDate.Year == year.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(type) && type != "All")
+        {
+            query = query.Where(t => t.Type == type);
+        }
+
+        if (categoryId.HasValue && categoryId.Value > 0)
+        {
+            query = query.Where(t => t.CategoryId == categoryId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            var kw = keyword.Trim().ToLower();
+            query = query.Where(t => (t.Note != null && t.Note.ToLower().Contains(kw)) ||
+                                     t.Category!.Name.ToLower().Contains(kw));
+        }
+
+        var totalCount = await query.CountAsync();
+        var transactions = await query
+            .OrderByDescending(t => t.TransactionDate)
+            .ThenByDescending(t => t.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
 
         var data = transactions.Select(t => new
         {
@@ -89,7 +126,15 @@ public class TransactionsApiController : ControllerBase
         int userId = GetCurrentUserId();
         if (userId == 0) return Unauthorized(new { message = "Bạn chưa đăng nhập." });
 
-        var (totalIncome, totalExpense, balance) = await _transactionService.GetBalanceAsync(userId);
+        var totals = await _context.Transactions
+            .Where(t => t.UserId == userId)
+            .GroupBy(t => t.Type)
+            .Select(g => new { Type = g.Key, Total = g.Sum(x => x.Amount) })
+            .ToListAsync();
+
+        decimal totalIncome = totals.FirstOrDefault(t => t.Type == "Income")?.Total ?? 0;
+        decimal totalExpense = totals.FirstOrDefault(t => t.Type == "Expense")?.Total ?? 0;
+        decimal balance = totalIncome - totalExpense;
 
         return Ok(new
         {

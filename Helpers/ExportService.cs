@@ -1,9 +1,9 @@
 using ClosedXML.Excel;
 using BTL_LTWEB_QLChiTieu.Models;
 
-namespace BTL_LTWEB_QLChiTieu.Services;
+namespace BTL_LTWEB_QLChiTieu.Helpers;
 
-public class ExportService : IExportService
+public class ExportService
 {
     public byte[] ExportMonthlyReportToExcel(AppUser user, int month, int year, List<Transaction> transactions)
     {

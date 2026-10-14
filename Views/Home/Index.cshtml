@@ -8,7 +8,7 @@
     decimal dailyAverageExpense = ViewBag.DailyAverageExpense ?? 0;
     int currentMonth = ViewBag.CurrentMonth ?? DateTime.Today.Month;
     int currentYear = ViewBag.CurrentYear ?? DateTime.Today.Year;
-    var budgets = ViewBag.Budgets as List<BTL_LTWEB_QLChiTieu.Services.BudgetProgressViewModel> ?? new();
+    var budgets = ViewBag.Budgets as List<BTL_LTWEB_QLChiTieu.ViewModels.BudgetProgressViewModel> ?? new();
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">

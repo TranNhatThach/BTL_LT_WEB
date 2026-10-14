@@ -18,7 +18,7 @@ public class StudentsController : Controller
 
     public async Task<IActionResult> Index(string? keyword, int page = 1, int pageSize = 10)
     {
-        var query = _context.Users.Where(u => u.Role == "Student").AsQueryable();
+        var query = _context.Users.AsNoTracking().Where(u => u.Role == "Student").AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(keyword))
         {
