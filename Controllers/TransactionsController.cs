@@ -139,6 +139,11 @@ public class TransactionsController : Controller
             {
                 transaction.TransactionDate = parsedDate;
             }
+            else
+            {
+                TempData["ErrorMessage"] = "Định dạng ngày giao dịch không hợp lệ (Vui lòng nhập Ngày/Tháng/Năm, ví dụ: 18/10/2026).";
+                return RedirectToAction(nameof(Index));
+            }
         }
 
         if (transaction.Amount <= 0)
@@ -147,9 +152,9 @@ public class TransactionsController : Controller
             return RedirectToAction(nameof(Index));
         }
 
-        if (transaction.TransactionDate.Date > DateTime.Today)
+        if (transaction.TransactionDate == DateTime.MinValue || transaction.TransactionDate.Year < 2000 || transaction.TransactionDate.Date > DateTime.Today)
         {
-            TempData["ErrorMessage"] = "Ngày giao dịch không được sau ngày hiện tại.";
+            TempData["ErrorMessage"] = "Ngày giao dịch không hợp lệ hoặc sau ngày hiện tại.";
             return RedirectToAction(nameof(Index));
         }
 
@@ -221,6 +226,11 @@ public class TransactionsController : Controller
             {
                 transaction.TransactionDate = parsedDate;
             }
+            else
+            {
+                TempData["ErrorMessage"] = "Định dạng ngày giao dịch không hợp lệ (Vui lòng nhập Ngày/Tháng/Năm, ví dụ: 18/10/2026).";
+                return RedirectToAction(nameof(Index));
+            }
         }
 
         var existing = await _context.Transactions
@@ -232,9 +242,9 @@ public class TransactionsController : Controller
             return RedirectToAction(nameof(Index));
         }
 
-        if (transaction.Amount <= 0 || transaction.TransactionDate.Date > DateTime.Today)
+        if (transaction.Amount <= 0 || transaction.TransactionDate == DateTime.MinValue || transaction.TransactionDate.Year < 2000 || transaction.TransactionDate.Date > DateTime.Today)
         {
-            TempData["ErrorMessage"] = "Dữ liệu giao dịch không hợp lệ.";
+            TempData["ErrorMessage"] = "Dữ liệu giao dịch không hợp lệ hoặc ngày sau ngày hiện tại.";
             return RedirectToAction(nameof(Index));
         }
 
@@ -245,6 +255,7 @@ public class TransactionsController : Controller
             return RedirectToAction(nameof(Index));
         }
 
+        string oldType = existing.Type;
         int oldCategoryId = existing.CategoryId;
         DateTime oldDate = existing.TransactionDate;
 
@@ -285,10 +296,11 @@ public class TransactionsController : Controller
         if (existing.Type == "Expense")
         {
             await BudgetAlertHelper.CheckAndTriggerBudgetAlertAsync(_context, userId, existing.CategoryId, existing.TransactionDate);
-            if (oldCategoryId != existing.CategoryId || oldDate.Month != existing.TransactionDate.Month)
-            {
-                await BudgetAlertHelper.CheckAndTriggerBudgetAlertAsync(_context, userId, oldCategoryId, oldDate);
-            }
+        }
+
+        if (oldType == "Expense" && (oldCategoryId != existing.CategoryId || oldDate.Month != existing.TransactionDate.Month || oldDate.Year != existing.TransactionDate.Year || oldType != existing.Type))
+        {
+            await BudgetAlertHelper.CheckAndTriggerBudgetAlertAsync(_context, userId, oldCategoryId, oldDate);
         }
 
         TempData["SuccessMessage"] = "Cập nhật giao dịch thành công!";

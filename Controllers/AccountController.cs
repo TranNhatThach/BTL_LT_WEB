@@ -318,8 +318,22 @@ public class AccountController : Controller
         var user = await _context.Users.FindAsync(userId);
         if (user == null) return NotFound();
 
-        // 1. Kiểm tra mật khẩu hiện tại có đúng không
-        bool isCurrentValid = BCrypt.Net.BCrypt.Verify(model.CurrentPassword, user.PasswordHash);
+        // 1. Kiểm tra mật khẩu hiện tại có đúng không (hỗ trợ cả hash BCrypt và fallback)
+        bool isCurrentValid = false;
+        try
+        {
+            isCurrentValid = BCrypt.Net.BCrypt.Verify(model.CurrentPassword, user.PasswordHash);
+        }
+        catch
+        {
+            isCurrentValid = false;
+        }
+
+        if (!isCurrentValid && user.PasswordHash == model.CurrentPassword)
+        {
+            isCurrentValid = true;
+        }
+
         if (!isCurrentValid)
         {
             ModelState.AddModelError(nameof(model.CurrentPassword), "Mật khẩu hiện tại không chính xác.");

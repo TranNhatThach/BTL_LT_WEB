@@ -430,13 +430,15 @@
 
                 if (!isNaN(d) && !isNaN(m) && !isNaN(y)) {
                     if (y < 100) y += 2000;
-                    const dStr = String(d).padStart(2, '0');
-                    const mStr = String(m).padStart(2, '0');
-                    const yStr = String(y);
-                    const iso = `${yStr}-${mStr}-${dStr}`;
-                    document.getElementById(hiddenId).value = iso;
-                    if (nativeId) {
-                        document.getElementById(nativeId).value = iso;
+                    if (d >= 1 && d <= 31 && m >= 1 && m <= 12 && y >= 1900) {
+                        const dStr = String(d).padStart(2, '0');
+                        const mStr = String(m).padStart(2, '0');
+                        const yStr = String(y);
+                        const iso = `${yStr}-${mStr}-${dStr}`;
+                        document.getElementById(hiddenId).value = iso;
+                        if (nativeId) {
+                            document.getElementById(nativeId).value = iso;
+                        }
                     }
                 }
             }

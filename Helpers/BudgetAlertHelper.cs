@@ -164,6 +164,16 @@ public static class BudgetAlertHelper
         }
         else if (percentage >= 80.0)
         {
+            // Nếu chi tiêu đã giảm xuống dưới 100%, xóa thông báo Exceeded cũ
+            var staleExceeded = await context.Notifications
+                .Where(n => n.BudgetId == budget.BudgetId && n.AlertLevel == "Exceeded")
+                .ToListAsync();
+            if (staleExceeded.Any())
+            {
+                context.Notifications.RemoveRange(staleExceeded);
+                await context.SaveChangesAsync();
+            }
+
             bool hasWarningNotif = await context.Notifications
                 .AnyAsync(n => n.BudgetId == budget.BudgetId && n.AlertLevel == "Warning");
 
@@ -181,6 +191,18 @@ public static class BudgetAlertHelper
                     CreatedAt = DateTime.UtcNow
                 };
                 context.Notifications.Add(notif);
+                await context.SaveChangesAsync();
+            }
+        }
+        else
+        {
+            // Chi tiêu đã quay về an toàn (< 80%), xóa các cảnh báo cũ của ngân sách này nếu có
+            var oldNotifs = await context.Notifications
+                .Where(n => n.BudgetId == budget.BudgetId)
+                .ToListAsync();
+            if (oldNotifs.Any())
+            {
+                context.Notifications.RemoveRange(oldNotifs);
                 await context.SaveChangesAsync();
             }
         }
