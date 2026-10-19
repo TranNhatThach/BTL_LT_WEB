@@ -90,6 +90,20 @@ public class TransactionsController : Controller
             .ThenBy(c => c.Name)
             .ToListAsync();
 
+        var existingYears = await _context.Transactions
+            .AsNoTracking()
+            .Where(t => t.UserId == userId)
+            .Select(t => t.TransactionDate.Year)
+            .Distinct()
+            .ToListAsync();
+
+        var availableYears = new HashSet<int>(existingYears);
+        for (int y = DateTime.Now.Year; y >= DateTime.Now.Year - 5; y--)
+        {
+            availableYears.Add(y);
+        }
+
+        ViewBag.AvailableYears = availableYears.OrderByDescending(y => y).ToList();
         ViewBag.Month = month;
         ViewBag.Year = year;
         ViewBag.Type = type;
@@ -113,10 +127,19 @@ public class TransactionsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(Transaction transaction, IFormFile? invoiceFile)
+    public async Task<IActionResult> Create(Transaction transaction, string? TransactionDateDisplay, IFormFile? invoiceFile)
     {
         int userId = GetCurrentUserId();
         transaction.UserId = userId;
+
+        if (!string.IsNullOrWhiteSpace(TransactionDateDisplay))
+        {
+            var formats = new[] { "d/M/yyyy", "dd/MM/yyyy", "d-M-yyyy", "dd-MM-yyyy", "yyyy-MM-dd" };
+            if (DateTime.TryParseExact(TransactionDateDisplay.Trim(), formats, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsedDate))
+            {
+                transaction.TransactionDate = parsedDate;
+            }
+        }
 
         if (transaction.Amount <= 0)
         {
@@ -187,9 +210,18 @@ public class TransactionsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(Transaction transaction, IFormFile? invoiceFile)
+    public async Task<IActionResult> Edit(Transaction transaction, string? TransactionDateDisplay, IFormFile? invoiceFile)
     {
         int userId = GetCurrentUserId();
+
+        if (!string.IsNullOrWhiteSpace(TransactionDateDisplay))
+        {
+            var formats = new[] { "d/M/yyyy", "dd/MM/yyyy", "d-M-yyyy", "dd-MM-yyyy", "yyyy-MM-dd" };
+            if (DateTime.TryParseExact(TransactionDateDisplay.Trim(), formats, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsedDate))
+            {
+                transaction.TransactionDate = parsedDate;
+            }
+        }
 
         var existing = await _context.Transactions
             .FirstOrDefaultAsync(t => t.TransactionId == transaction.TransactionId && t.UserId == userId);

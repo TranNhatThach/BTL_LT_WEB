@@ -32,11 +32,6 @@ public class HomeController : Controller
             return RedirectToAction("Login", "Account");
         }
 
-        // 2. Nếu là Quản trị viên (Admin) thì chuyển hướng sang Admin Dashboard
-        if (User.IsInRole("Admin"))
-        {
-            return RedirectToAction("Index", "Home", new { area = "Admin" });
-        }
 
         int userId = GetCurrentUserId();
         int currentMonth = DateTime.Today.Month;

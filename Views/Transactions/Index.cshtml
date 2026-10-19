@@ -103,9 +103,19 @@
                 <label class="form-label small fw-semibold text-secondary">Năm</label>
                 <select name="year" class="form-select bg-light">
                     <option value="">Tất cả</option>
-                    @for (int y = DateTime.Now.Year; y >= DateTime.Now.Year - 3; y--)
+                    @if (ViewBag.AvailableYears is List<int> yearsList)
                     {
-                        <option value="@y" selected="@(currentYear == y)">@y</option>
+                        foreach (int y in yearsList)
+                        {
+                            <option value="@y" selected="@(currentYear == y)">@y</option>
+                        }
+                    }
+                    else
+                    {
+                        @for (int y = DateTime.Now.Year; y >= DateTime.Now.Year - 10; y--)
+                        {
+                            <option value="@y" selected="@(currentYear == y)">@y</option>
+                        }
                     }
                 </select>
             </div>
@@ -205,7 +215,22 @@
                     <!-- Ngày giao dịch -->
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">Ngày giao dịch</label>
-                        <input type="date" name="TransactionDate" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" max="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                        <div class="input-group">
+                            <input type="text" name="TransactionDateDisplay" id="createTransactionDateDisplay" 
+                                   class="form-control" value="@DateTime.Today.ToString("dd/MM/yyyy")" 
+                                   placeholder="dd/MM/yyyy (ví dụ: 02/10/2026)" required 
+                                   oninput="syncDateToHidden('createTransactionDateDisplay', 'createTransactionDateHidden', 'createTransactionDateNative')"
+                                   onchange="syncDateToHidden('createTransactionDateDisplay', 'createTransactionDateHidden', 'createTransactionDateNative')" />
+                            <input type="date" id="createTransactionDateNative" 
+                                   style="position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none;" 
+                                   value="@DateTime.Today.ToString("yyyy-MM-dd")" max="@DateTime.Today.ToString("yyyy-MM-dd")" 
+                                   onchange="syncNativeToDisplay('createTransactionDateNative', 'createTransactionDateDisplay', 'createTransactionDateHidden')" />
+                            <button type="button" class="btn btn-outline-secondary" onclick="openNativeDatePicker('createTransactionDateNative')" title="Mở lịch chọn ngày">
+                                <i class="bi bi-calendar3"></i>
+                            </button>
+                            <input type="hidden" name="TransactionDate" id="createTransactionDateHidden" value="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                        </div>
+                        <small class="text-muted" style="font-size: 0.75rem;">Định dạng: Ngày/Tháng/Năm (ví dụ: 02/10/2026 hoặc 2/10/2026)</small>
                     </div>
 
                     <!-- Ghi chú -->
@@ -267,7 +292,21 @@
 
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">Ngày giao dịch</label>
-                        <input type="date" name="TransactionDate" id="editTransactionDate" class="form-control" max="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                        <div class="input-group">
+                            <input type="text" name="TransactionDateDisplay" id="editTransactionDateDisplay" 
+                                   class="form-control" placeholder="dd/MM/yyyy (ví dụ: 02/10/2026)" required 
+                                   oninput="syncDateToHidden('editTransactionDateDisplay', 'editTransactionDateHidden', 'editTransactionDateNative')"
+                                   onchange="syncDateToHidden('editTransactionDateDisplay', 'editTransactionDateHidden', 'editTransactionDateNative')" />
+                            <input type="date" id="editTransactionDateNative" 
+                                   style="position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none;" 
+                                   max="@DateTime.Today.ToString("yyyy-MM-dd")" 
+                                   onchange="syncNativeToDisplay('editTransactionDateNative', 'editTransactionDateDisplay', 'editTransactionDateHidden')" />
+                            <button type="button" class="btn btn-outline-secondary" onclick="openNativeDatePicker('editTransactionDateNative')" title="Mở lịch chọn ngày">
+                                <i class="bi bi-calendar3"></i>
+                            </button>
+                            <input type="hidden" name="TransactionDate" id="editTransactionDateHidden" />
+                        </div>
+                        <small class="text-muted" style="font-size: 0.75rem;">Định dạng: Ngày/Tháng/Năm (ví dụ: 02/10/2026 hoặc 2/10/2026)</small>
                     </div>
 
                     <div class="mb-3">
@@ -360,11 +399,72 @@
             new bootstrap.Modal(document.getElementById('invoiceModal')).show();
         }
 
+        function openNativeDatePicker(pickerId) {
+            const el = document.getElementById(pickerId);
+            if (!el) return;
+            if (typeof el.showPicker === 'function') {
+                el.showPicker();
+            } else {
+                el.focus();
+            }
+        }
+
+        function syncNativeToDisplay(nativeId, displayId, hiddenId) {
+            const nativeVal = document.getElementById(nativeId).value;
+            if (nativeVal) {
+                const parts = nativeVal.split('-');
+                if (parts.length === 3) {
+                    document.getElementById(displayId).value = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                    document.getElementById(hiddenId).value = nativeVal;
+                }
+            }
+        }
+
+        function syncDateToHidden(displayId, hiddenId, nativeId) {
+            const val = document.getElementById(displayId).value.trim();
+            const parts = val.split(/[\/\-\.]/);
+            if (parts.length === 3) {
+                let d = parseInt(parts[0], 10);
+                let m = parseInt(parts[1], 10);
+                let y = parseInt(parts[2], 10);
+
+                if (!isNaN(d) && !isNaN(m) && !isNaN(y)) {
+                    if (y < 100) y += 2000;
+                    const dStr = String(d).padStart(2, '0');
+                    const mStr = String(m).padStart(2, '0');
+                    const yStr = String(y);
+                    const iso = `${yStr}-${mStr}-${dStr}`;
+                    document.getElementById(hiddenId).value = iso;
+                    if (nativeId) {
+                        document.getElementById(nativeId).value = iso;
+                    }
+                }
+            }
+        }
+
+        $('form').on('submit', function () {
+            if (document.getElementById('createTransactionDateDisplay')) {
+                syncDateToHidden('createTransactionDateDisplay', 'createTransactionDateHidden', 'createTransactionDateNative');
+            }
+            if (document.getElementById('editTransactionDateDisplay')) {
+                syncDateToHidden('editTransactionDateDisplay', 'editTransactionDateHidden', 'editTransactionDateNative');
+            }
+        });
+
         function openEditTransaction(id) {
             $.get('@Url.Action("GetById")/' + id, function (data) {
                 $('#editTransactionId').val(data.transactionId);
                 $('#editAmount').val(data.amount);
-                $('#editTransactionDate').val(data.transactionDate);
+                
+                if (data.transactionDate) {
+                    const parts = data.transactionDate.split('-');
+                    if (parts.length === 3) {
+                        $('#editTransactionDateDisplay').val(`${parts[2]}/${parts[1]}/${parts[0]}`);
+                        $('#editTransactionDateHidden').val(data.transactionDate);
+                        $('#editTransactionDateNative').val(data.transactionDate);
+                    }
+                }
+                
                 $('#editNote').val(data.note);
 
                 if (data.type === 'Expense') {

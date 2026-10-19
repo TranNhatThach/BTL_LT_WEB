@@ -27,7 +27,7 @@
                 }
             </select>
             <select name="year" class="form-select form-select-sm bg-white" onchange="this.form.submit()">
-                @for (int y = DateTime.Now.Year + 1; y >= DateTime.Now.Year - 2; y--)
+                @for (int y = DateTime.Now.Year + 1; y >= DateTime.Now.Year - 10; y--)
                 {
                     <option value="@y" selected="@(selectedYear == y)">@y</option>
                 }

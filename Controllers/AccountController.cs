@@ -295,6 +295,54 @@ public class AccountController : Controller
         return RedirectToAction(nameof(Profile));
     }
 
+    [Authorize]
+    [HttpGet]
+    public IActionResult ChangePassword()
+    {
+        return View();
+    }
+
+    [Authorize]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangePassword(ChangePasswordViewModel model)
+    {
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        int userId = GetCurrentUserId();
+        if (userId == 0) return RedirectToAction(nameof(Login));
+
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null) return NotFound();
+
+        // 1. Kiểm tra mật khẩu hiện tại có đúng không
+        bool isCurrentValid = BCrypt.Net.BCrypt.Verify(model.CurrentPassword, user.PasswordHash);
+        if (!isCurrentValid)
+        {
+            ModelState.AddModelError(nameof(model.CurrentPassword), "Mật khẩu hiện tại không chính xác.");
+            return View(model);
+        }
+
+        // 2. Không cho phép mật khẩu mới giống hệt mật khẩu hiện tại
+        if (model.CurrentPassword == model.NewPassword)
+        {
+            ModelState.AddModelError(nameof(model.NewPassword), "Mật khẩu mới không được trùng với mật khẩu hiện tại.");
+            return View(model);
+        }
+
+        // 3. Băm mật khẩu mới bằng BCrypt và lưu vào CSDL
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(model.NewPassword);
+        user.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Đổi mật khẩu thành công! Vui lòng ghi nhớ mật khẩu mới.";
+        return RedirectToAction(nameof(ChangePassword));
+    }
+
     [HttpGet]
     public IActionResult AccessDenied()
     {
